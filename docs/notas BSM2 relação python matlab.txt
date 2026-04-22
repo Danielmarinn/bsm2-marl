@@ -1,0 +1,44 @@
+
+
+
+Simulink                          Python
+   |                                 |
+   |-- escreve state.csv ----------->|
+   |-- cria flag_state.run --------->|
+   |                                 |-- lê state.csv
+   |                                 |-- calcula ação
+   |                                 |-- escreve action.csv
+   |                                 |-- cria flag_action.run
+   |<-- lê action.csv ---------------|
+   |<-- apaga flag_action.run -------|
+   |                                 |
+  (repete a cada step de simulação)
+
+
+SNO_anox → reac2(end, 10)             = ~8-10 mg/L  ✅
+SNH_in   → DYNINFLUENT_BSM2(end, 11)  = ~24  mg/L   ✅
+
+
+
+Simulink (BSM2)
+      │
+      │ pause every 15 min
+      ▼
+RL_main_simple.m
+      │
+      │ write
+      ▼
+state.csv
+      │
+      ▼
+Python ctrl_simple.py
+      │
+      │ compute action
+      ▼
+action.csv
+      │
+      ▼
+MATLAB aplica ação
+      │
+      ▼
+Simulação continua
