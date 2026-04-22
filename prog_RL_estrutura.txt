@@ -30,8 +30,12 @@ prog_RL/
 |   |-- ctrl2_qint_training.csv    <- current CTRL-2 training log
 |
 |-- docs/
-|   |-- Coorelacao agentes/        <- correlation-analysis material
-|   `-- notas BSM2 relacao python matlab.txt
+|   |-- README.md                  <- docs index and file guide
+|   |-- correlation-analysis/      <- correlation-analysis material
+|   |   |-- bsm2_corr_analysis_full.m
+|   |   |-- bsm2_corr_analysis_full_prog_RL_snapshot.m
+|   |   `-- open-loop-vs-closed-loop-correlation.md
+|   `-- matlab-python-integration-notes.txt
 |                                   <- notes about MATLAB / Python integration
 |
 `-- prog_RL_estrutura.txt          <- this structure note
