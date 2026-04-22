@@ -1,22 +1,30 @@
 function update_Qint_from_python(action_file)
 % UPDATE_QINT_FROM_PYTHON
-%   Lê Qint do action.csv escrito pelo Python e aplica no workspace MATLAB.
+%   Read Qint from action.csv written by Python and apply it in MATLAB.
 %
-%   Nota de nomenclatura: a coluna no CSV chama-se 'Qec' por
-%   compatibilidade histórica, mas o valor é aplicado como Qintr
-%   (recirculação interna), não como carbono externo.
+%   Accepted column names:
+%     - 'Qint' as the canonical public-facing name
+%     - 'Qec' as a legacy compatibility name
 %
-%   Limites BSM2: Qint in [5000, 61944] m³/d
+%   BSM2 limits: Qint in [5000, 61944] m3/d
 
     QINT_MIN = 5000.0;
     QINT_MAX = 61944.0;
 
     try
-        T     = readtable(action_file);
-        Qintr = T.Qec(end);   % coluna 'Qec' = Qint por convenção histórica
+        T = readtable(action_file);
+
+        if ismember('Qint', T.Properties.VariableNames)
+            Qintr = T.Qint(end);
+        elseif ismember('Qec', T.Properties.VariableNames)
+            Qintr = T.Qec(end);
+        else
+            error('action.csv must contain either Qint or Qec');
+        end
+
         Qintr = max(QINT_MIN, min(QINT_MAX, Qintr));
     catch e
-        warning('update_Qint_from_python: %s — usando default', e.message);
+        warning('update_Qint_from_python: %s - using default', e.message);
         Qintr = QINT_MAX;
     end
 

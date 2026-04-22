@@ -82,7 +82,8 @@ def controller(state, prev_action=None):
 
 def write_action(action):
     tmp = ACTION_FILE + '.tmp'
-    pd.DataFrame({'Qec': [float(action)]}).to_csv(tmp, index=False)
+    value = float(action)
+    pd.DataFrame({'Qint': [value], 'Qec': [value]}).to_csv(tmp, index=False)
     os.replace(tmp, ACTION_FILE)
 
 # =====================================================

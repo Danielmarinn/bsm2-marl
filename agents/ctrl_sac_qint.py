@@ -127,9 +127,15 @@ read_state.Flow = 20648.0
 
 
 def write_action(qint_value):
-    """Atomic write to prevent partial reads by MATLAB."""
+    """Atomic write to prevent partial reads by MATLAB.
+
+    Both column names are written for backward compatibility:
+    - Qint: canonical public-facing name
+    - Qec: legacy name kept for older MATLAB readers
+    """
     tmp = ACTION_FILE + '.tmp'
-    pd.DataFrame({'Qec': [float(qint_value)]}).to_csv(tmp, index=False)
+    value = float(qint_value)
+    pd.DataFrame({'Qint': [value], 'Qec': [value]}).to_csv(tmp, index=False)
     os.replace(tmp, ACTION_FILE)
 
 # =====================================================

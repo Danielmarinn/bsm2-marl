@@ -1,154 +1,126 @@
-# BSM2 MARL — Multi-Agent Reinforcement Learning for Wastewater Treatment
+# BSM2 MARL
 
-**Daniel Marin** — MSc Thesis, Engineering Physics, University of Coimbra
+Multi-agent reinforcement learning for wastewater treatment control in the BSM2 benchmark.
 
-> 🚧 **Active Development** — Currently implementing CTRL-2 (SAC). G2ANet multi-agent framework in progress.
+This repository is a curated public snapshot of my MSc thesis work in Engineering Physics at the University of Coimbra. It combines MATLAB/Simulink process simulation with Python reinforcement learning agents to explore learned control policies for a wastewater treatment plant.
 
----
+## Why This Project Matters
 
-## Overview
+- It tackles a real control problem rather than a toy RL environment.
+- It integrates MATLAB/Simulink process dynamics with Python learning code.
+- It treats control as an engineering problem with operating-cost and effluent-quality tradeoffs.
+- It is being developed as a thesis project with a path from single-agent SAC to multi-agent coordination.
 
-This project applies **Multi-Agent Reinforcement Learning (MARL)** to control a wastewater treatment plant (WWTP) simulated in the **BSM2** (Benchmark Simulation Model No. 2) environment running in MATLAB/Simulink.
+## Current Status
 
-The goal is to train 4 cooperative RL agents to simultaneously optimise effluent quality and operational costs, replacing conventional PID controllers.
+| Area | Status |
+|---|---|
+| MATLAB-Python communication bridge | Implemented |
+| Shared reward and training utilities | Implemented |
+| CTRL-2 internal recirculation agent (SAC) | Implemented |
+| Baseline proportional controller | Implemented |
+| Correlation-based variable selection workflow | Documented |
+| CTRL-1 external carbon agent | In progress locally |
+| Full 4-agent MARL training | Planned |
+| G2ANet-style communication layer | Planned |
 
----
+## System Architecture
 
-## Architecture
-
+```text
+MATLAB / Simulink (BSM2)                Python
+------------------------                ----------------------------
+Closed-loop plant simulation   <---->   RL or baseline controller
+15-minute process timestep              Reward computation
+State export to CSV                     Action generation
+Action import from CSV                  Checkpoint and log writing
 ```
-MATLAB/Simulink (BSM2)          Python (RL Agents)
-─────────────────────           ──────────────────
-  BSM2 closed-loop         ←→   SAC agents
-  Simulink step (15 min)        Reward computation
-  State export → CSV            Action → CSV
-  Action import ← CSV           Checkpoint saving
-```
 
-Communication between MATLAB and Python is done via CSV file exchange with flag files for synchronisation, running at the BSM2 simulation timestep (15 min).
+The plant simulation runs in MATLAB/Simulink while the controller runs in Python. The two sides communicate through lightweight CSV exchange plus runtime flag files.
 
----
+## Control Scope
 
-## The 4 Control Agents
+| Controller | Manipulated variable | Status |
+|---|---|---|
+| CTRL-1 | `Qec` external carbon dosing | In progress |
+| CTRL-2 | `Qint` internal recirculation | Implemented with SAC |
+| CTRL-3 | `DOref` dissolved oxygen setpoint | Planned |
+| CTRL-4 | `Qw` waste sludge flow | Planned |
 
-| Agent | Variable | Range | Observations |
-|-------|----------|-------|--------------|
-| CTRL-1 | Qec (external carbon) | — | SNO₂, SNO₁, SNO₃, COD/TN |
-| **CTRL-2** ✅ | **Qint (internal recirculation)** | **5,000–61,944 m³/d** | **SNO₂, SNO₁, SNO₃, COD/TN** |
-| CTRL-3 | DOref (dissolved oxygen setpoint) | — | SO₅, SNH₄, SNH₅, SNO₃, TSS₃ |
-| CTRL-4 | Qw (waste sludge flow) | — | TSS₅, SND₅ |
+The current public implementation focuses on CTRL-2. Variable selection was guided by Pearson correlation analysis on BSM2 operating data.
 
-Observations selected via **Pearson correlation analysis** over 57,000 BSM2 samples (days 245–609).
+## Reward Formulation
 
----
+The reward follows the operating-cost structure used in Nam et al. (2023):
 
-## Reward Function
-
-Based on **Nam et al. (2023)**:
-
-```
-J(t) = 200·EQI + 40·AE + 3·PE + 1·EC
-r(t) = -5·(J_RL / J_manual) + 5,   clipped ≥ -1
+```text
+J(t) = 200 * EQI + 40 * AE + 3 * PE + 1 * EC
+r(t) = -5 * (J_RL / J_manual) + 5
+r(t) >= -1
 ```
 
 Where:
-- **EQI** — Effluent Quality Index (pollution load)
-- **AE** — Aeration Energy
-- **PE** — Pumping Energy (function of Qint)
-- **EC** — External Carbon consumption
+- `EQI` is the effluent quality index proxy.
+- `AE` is aeration energy.
+- `PE` is pumping energy, including the contribution from `Qint`.
+- `EC` is external carbon consumption.
 
----
+## What Is In This Repo
 
-## Algorithm: SAC → G2ANet (planned)
+- [`agents/`](./agents): Python controllers, including the current SAC controller for `Qint`.
+- [`core/`](./core): shared RL infrastructure such as networks, replay buffer, and reward calculation.
+- [`matlab/`](./matlab): orchestration scripts for stepping BSM2 and exchanging data with Python.
+- [`docs/`](./docs): analysis notes and correlation-study material.
+- [`comms/`](./comms): example runtime exchange files used by the MATLAB-Python bridge.
+- [`logs/`](./logs): sample training log artifacts.
+- [`checkpoints/`](./checkpoints): sample trained model artifact.
+- [`PROJECT_STRUCTURE.md`](./PROJECT_STRUCTURE.md): concise map of the repository layout.
 
-**Current:** Single-agent **Soft Actor-Critic (SAC)** for CTRL-2
+## Key Technical Decisions
 
-**Planned:** **G2ANet** (Graph-to-Agent Network, Liu et al.) — CTDE framework with:
-- Hard attention (Gumbel-Softmax) → sparse binary communication graph
-- Soft attention → weighted message aggregation between agents
-- Centralised critic during training, decentralised execution
+- Soft Actor-Critic is used first on a single control loop before moving to multi-agent coordination.
+- The bridge uses simple file-based synchronization so MATLAB and Python remain loosely coupled.
+- The reward is centered on process-quality and operating-cost terms rather than abstract RL signals.
+- Runtime artifacts are kept lightweight and inspectable for debugging.
 
----
+## Running The Current CTRL-2 Pipeline
 
-## Repository Structure
+Requirements:
+- Python 3
+- MATLAB/Simulink with the BSM2 closed-loop model available locally
 
-```
-├── agents/
-│   ├── ctrl_sac_qint.py        # CTRL-2: Qint SAC agent ✅
-│   └── ctrl_proportional.py    # Proportional baseline controller
-│
-├── core/
-│   ├── sac_networks.py         # Actor/Critic neural networks
-│   ├── replay_buffer.py        # Experience replay buffer
-│   └── reward.py               # Shared reward function (Nam et al. 2023)
-│
-├── matlab/
-│   ├── RL_main_episodes.m      # Episode-based training orchestrator
-│   ├── RL_main_simple.m        # Simple step-by-step orchestrator
-│   ├── update_Qint_from_python.m
-│   ├── save_last_sample_to_csv.m
-│   └── filter_and_rename_csv.m
-│
-├── docs/
-│   └── Correlação agentes/     # Pearson correlation analysis (MATLAB)
-│
-├── comms/                      # MATLAB↔Python CSV interface (runtime)
-├── checkpoints/                # Saved model weights
-└── logs/                       # Training logs (reward, J, episode stats)
-```
-
----
-
-## SAC Hyperparameters (CTRL-2)
-
-| Parameter | Value |
-|-----------|-------|
-| Hidden layers | (256, 256) |
-| Learning rate | 3×10⁻⁴ |
-| Discount γ | 0.99 |
-| Soft update τ | 0.005 |
-| Batch size | 256 |
-| Buffer size | 50,000 |
-| Warmup steps | 1,000 |
-
----
-
-## Setup
+Install Python dependencies:
 
 ```bash
-pip install torch numpy pandas
+pip install -r requirements.txt
 ```
 
-**Run training (CTRL-2):**
+Run the controller:
+
 ```bash
-# Terminal 1 — Start Python agent
 python agents/ctrl_sac_qint.py
+```
 
-# MATLAB — Start BSM2 simulation
+Then start the MATLAB orchestrator:
+
+```matlab
 run matlab/RL_main_episodes.m
 ```
 
-Requires MATLAB/Simulink with BSM2 closed-loop model.
+## Notes For Reviewers
 
----
+- This public repository is intended to show working thesis progress, not the full private experimentation history.
+- The BSM2 plant model itself is not bundled here.
+- Some folders such as `comms/`, `logs/`, and `checkpoints/` contain representative working artifacts to make the integration flow easy to inspect.
 
-## Roadmap
+## Next Steps
 
-- [x] MATLAB-Python communication bridge
-- [x] Reward function (Nam et al. 2023)
-- [x] SAC infrastructure (networks, replay buffer)
-- [x] CTRL-2 (Qint) — SAC agent training
-- [ ] CTRL-1 (Qec) — SAC agent
-- [ ] CTRL-3 (DOref) — SAC agent
-- [ ] CTRL-4 (Qw) — SAC agent
-- [ ] G2ANet multi-agent communication framework
-- [ ] Full 4-agent training and evaluation
-- [ ] Comparison vs BSM2 baseline controllers
-
----
+- Promote the CTRL-1 `Qec` work from local experimentation into the main repo after validation.
+- Expand from single-agent control to coordinated multi-agent training.
+- Strengthen experiment packaging and evaluation for thesis reporting.
+- Compare learned controllers against stronger baselines and the standard BSM2 setup.
 
 ## References
 
-- Nam, K. et al. (2023). *Reinforcement learning-based WWTP control*
-- Liu, Y. et al. (2020). *G2ANet: Multi-Agent Communication with Graph Attention*
-- Jeppsson, U. et al. (2011). *BSM2: Benchmark Simulation Model No. 2*
+- Nam, K. et al. (2023). Reinforcement learning-based WWTP control.
+- Liu, Y. et al. (2020). G2ANet: Multi-Agent Communication with Graph Attention.
+- Jeppsson, U. et al. (2011). Benchmark Simulation Model No. 2.

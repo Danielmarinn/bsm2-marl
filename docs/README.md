@@ -10,3 +10,4 @@
 - The repo keeps both correlation scripts because they are not identical.
 - Prefer the canonical `correlation-analysis/` folder for future work.
 - Keep new notes and analysis material in ASCII-friendly filenames when possible.
+- See the root `README.md` for the project overview and `PROJECT_STRUCTURE.md` for the folder map.

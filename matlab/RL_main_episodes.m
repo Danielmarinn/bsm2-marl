@@ -168,7 +168,7 @@ for ep = 1:N_EPISODES
                     pause(0.05);
                     if toc(t_wait) > TIMEOUT
                         warning('[RL] TIMEOUT — Qint default aplicado.');
-                        Tdef = table(61944.0, 'VariableNames', {'Qec'});
+                        Tdef = table(61944.0, 61944.0, 'VariableNames', {'Qint','Qec'});
                         writetable(Tdef, ACTION_FILE);
                         fid = fopen(FLAG_ACTION, 'w'); fclose(fid);
                         break
