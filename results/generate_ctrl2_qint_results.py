@@ -32,8 +32,8 @@ def main() -> None:
 
     x = plot_df["step"]
 
-    axes[0].plot(x, plot_df["reward"], color="#c47c2c", alpha=0.25, linewidth=2)
-    axes[0].plot(x, plot_df["reward_ma"], color="#8c4f16", linewidth=2.5)
+    axes[0].plot(x, plot_df["reward"], color="#c47c2c", alpha=0.25, linewidth=2, label="Raw logged reward")
+    axes[0].plot(x, plot_df["reward_ma"], color="#8c4f16", linewidth=2.5, label="10-step moving average")
     axes[0].set_ylabel("Reward")
     axes[0].set_title("CTRL-2 (Qint) SAC Training Snapshot", fontsize=16, weight="bold")
     axes[0].text(
@@ -44,9 +44,10 @@ def main() -> None:
         fontsize=10,
         color="#5b3a14",
     )
+    axes[0].legend(loc="upper right", frameon=False)
 
-    axes[1].plot(x, plot_df["ratio"], color="#2b7a78", alpha=0.25, linewidth=2)
-    axes[1].plot(x, plot_df["ratio_ma"], color="#14514f", linewidth=2.5)
+    axes[1].plot(x, plot_df["ratio"], color="#2b7a78", alpha=0.25, linewidth=2, label="Raw logged ratio")
+    axes[1].plot(x, plot_df["ratio_ma"], color="#14514f", linewidth=2.5, label="10-step moving average")
     axes[1].set_ylabel("J / J_manual")
     axes[1].text(
         0.01,
@@ -56,9 +57,10 @@ def main() -> None:
         fontsize=10,
         color="#0f403f",
     )
+    axes[1].legend(loc="upper right", frameon=False)
 
-    axes[2].plot(x, plot_df["Qint"], color="#4e79a7", alpha=0.25, linewidth=2)
-    axes[2].plot(x, plot_df["qint_ma"], color="#1f4e79", linewidth=2.5)
+    axes[2].plot(x, plot_df["Qint"], color="#4e79a7", alpha=0.25, linewidth=2, label="Raw logged Qint")
+    axes[2].plot(x, plot_df["qint_ma"], color="#1f4e79", linewidth=2.5, label="10-step moving average")
     axes[2].set_ylabel("Qint (m3/d)")
     axes[2].set_xlabel("Training Step")
     axes[2].text(
@@ -69,6 +71,7 @@ def main() -> None:
         fontsize=10,
         color="#183b59",
     )
+    axes[2].legend(loc="upper right", frameon=False)
 
     fig.suptitle(
         "Ongoing result from the tracked example log in logs/ctrl2_qint_training.csv",
