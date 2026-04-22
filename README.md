@@ -73,6 +73,7 @@ Where:
 - [`comms/`](./comms): example runtime exchange files used by the MATLAB-Python bridge.
 - [`logs/`](./logs): sample training log artifacts.
 - [`checkpoints/`](./checkpoints): sample trained model artifact.
+- [`results/`](./results): generated portfolio-ready figures and summaries from tracked example logs.
 - [`PROJECT_STRUCTURE.md`](./PROJECT_STRUCTURE.md): concise map of the repository layout.
 
 ## Key Technical Decisions
@@ -105,6 +106,20 @@ Then start the MATLAB orchestrator:
 ```matlab
 run matlab/RL_main_episodes.m
 ```
+
+## Ongoing Results
+
+The repository includes a small tracked training snapshot for the current CTRL-2 SAC controller. It is not a final benchmark, but it already shows meaningful movement away from the default high-recirculation setting.
+
+![CTRL-2 training overview](./results/ctrl2_qint_training_overview.png)
+
+From the currently tracked example log:
+
+- reward increased from `0.805` to `1.966`
+- `J / J_manual` decreased from `0.839` to `0.607`
+- `Qint` moved from `61944` to about `5085` m3/d
+
+See [`results/ctrl2_qint_summary.md`](./results/ctrl2_qint_summary.md) for the generated summary.
 
 ## Notes For Reviewers
 
