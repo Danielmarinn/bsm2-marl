@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Runtime artifacts
+logs/
+checkpoints/
+comms/
+*.mat
+*.pt
+*.log
+*.csv
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
