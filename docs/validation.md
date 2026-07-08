@@ -44,4 +44,3 @@ No learned configuration improves the manual baseline while respecting the offic
 - `results/game2_official_summary_20260620_091413.csv` - restricted-ranges run (the most reliable learned configuration).
 - `results/game2_official_summary_20260623_080230.csv` - lower dissolved-oxygen run.
 - `docs/validation/single_agent_validation_summary.csv` - single-agent diagnostic table.
-- `results/game2_final_audit/` - an additional exploratory run kept for transparency; it is not one of the configurations reported in the thesis (Table 5.5).
