@@ -32,20 +32,32 @@ The thesis focuses on `sac-ctde-rnn`. It uses a straight-through binary hard gat
 
 ## Main result, stated carefully
 
-The final multi-agent run shows that the controller learned to reduce several controllable resource terms, but it did not dominate the manual BSM2 baseline on the full objective.
+The central finding is negative but informative: the coordinated multi-agent controller runs end to end on BSM2 and produces closed-loop plant-wide policies, but the tested reward, action bounds, and compliance penalty do **not** yield a policy that beats the manual BSM2 baseline while respecting the official effluent limits.
 
-On the official 245-609 day evaluation window, compared with the manual baseline:
+A lower operating cost is only meaningful if the effluent limits stay protected. The manual baseline is a demanding reference: it already runs near 2 mg/L dissolved oxygen and balances effluent quality (EQI), operating cost (OCI), and compliance well.
 
-- aeration energy decreased by about 24%;
-- pumping energy decreased by about 32%;
-- external carbon use decreased by about 49%;
-- the partial controllable operating-cost components decreased by about 33%;
-- the logged reward objective without safety penalties was about 6.9% worse;
-- ammonium violations increased substantially.
+The table below is the thesis synthesis (Table 5.5), evaluated on the official 245-609 day window.
 
-So the result is not presented as a production-ready controller. It is evidence that the MARL stack, MATLAB/Python bridge, recurrent CTDE training loop, and attention-based coordination can be run end to end on BSM2, while also exposing the remaining water-quality tradeoff.
+| Indicator | Manual baseline | Original ranges | Restricted ranges | Lower DO range | Lower DO + penalty |
+|---|---:|---:|---:|---:|---:|
+| EQI (kg poll. units / d) | 5576.7 | 31911.8 | 5756.2 | 5551.8 | 5714.0 |
+| OCI (total, cost units) | 9450.0 | 4137.0 | 10631.1 | 11265.3 | 11550.0 |
+| Aeration energy (kWh/d) | 4225.4 | 788.3 | 5032.4 | 3848.6 | 4368.5 |
+| External carbon cost | 2400.0 | 3647.5 | 2766.9 | 4494.3 | 4251.4 |
+| SNH violation (% of time) | 0.41 | 91.31 | 0.25 | 12.93 | 15.14 |
+| TN violation (% of time) | 1.18 | 90.75 | 5.16 | 0.45 | 1.13 |
+| SNH95 (mg N/L) | 1.54 | 50.57 | 1.42 | 5.80 | 6.19 |
+| TN95 (mg N/L) | 16.75 | 52.82 | 18.03 | 15.47 | 16.40 |
 
-See `docs/validation.md` and `results/game2_final_audit/` for the exported summaries.
+How to read it:
+
+- **Original action ranges** reach a much lower OCI (4137 vs 9450), but only by collapsing aeration to 788 kWh/d. This suppresses nitrification, so EQI rises about 5.7x and ammonia is over the limit for 91% of the window. The apparent cost saving is not a genuine efficiency gain; it is undertreatment.
+- **Restricted (physically safe) action ranges** are the most reliable learned configuration. Ammonia compliance is restored (0.25% violation) and EQI returns close to the baseline, but the official OCI is about **12.5% higher** than the manual baseline. Once confined to a safe operating region, the learned controller treats more aggressively and spends more.
+- **Lowering the dissolved-oxygen bound** recovers part of the aeration saving but reintroduces ammonia violations (12.93%). The simple compliance penalty tested here does not close that trade-off (15.14%).
+
+So the contribution is the implementation plus the diagnosis: the work shows *when* an apparent cost reduction is caused by insufficient treatment effort rather than by genuine improvement, and it shows that effluent limits must shape learning as safety requirements before coordinated RL can reduce operating cost without degrading effluent quality.
+
+See `docs/validation.md` for the per-configuration tables and `results/` for the exported official summaries.
 
 ## Running the code
 

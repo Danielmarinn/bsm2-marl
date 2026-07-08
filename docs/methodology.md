@@ -34,7 +34,7 @@ Per-agent credit is handled by the actor update. For agent `i`, the sampled acti
 
 ## Limitations
 
-- The final run improves several resource terms but does not improve the full logged objective against the manual baseline.
+- No tested configuration improves the manual baseline while respecting the official effluent limits. The wide original action ranges make a biologically unsafe underaeration operating point reachable, and the reward floor weakens the recovery signal once the plant has collapsed. Restricting the action ranges removes the collapse and restores ammonia compliance, but the resulting controller has a higher official OCI than the manual baseline (about 12.5% higher).
 - Ammonium violations remain the main water-quality failure mode.
 - Full reproduction requires MATLAB, Simulink, and the official BSM2 distribution, which is not included here.
 - Runtime checkpoints and large logs are excluded from Git; this repository keeps the implementation and concise evidence, not the full experiment archive.

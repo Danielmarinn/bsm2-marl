@@ -15,25 +15,33 @@ All four diagnostic controllers reached active SAC operation and produced bounde
 
 See `docs/validation/single_agent_validation_overview.png` and the per-controller figures in the same folder.
 
-## Multi-agent run
+## Multi-agent runs
 
-The final run was evaluated on the official 245-609 day window against the manual BSM2 baseline.
+Each coordinated configuration was trained once and evaluated on the official 245-609 day window against the manual BSM2 baseline. The table is the thesis synthesis (Table 5.5). Lower is better for cost and violation metrics, but a lower OCI only counts if the effluent limits stay protected.
 
-| Metric | Run | Manual | Change |
-|---|---:|---:|---:|
-| Aeration energy AE | 3209 kWh/d | 4225 kWh/d | 24.0% lower |
-| Pumping energy PE | 304 kWh/d | 445 kWh/d | 31.8% lower |
-| External carbon EC | 404 kg COD/d | 800 kg COD/d | 49.5% lower |
-| Partial controllable operating cost | 4726 | 7071 | 33.2% lower |
-| EQI | 6226 | 5577 | 11.6% higher |
-| Reward objective J without safety penalties | 1.375e6 | 1.286e6 | 6.9% higher |
-| SNH violation time | 27.6% | 0.41% | worse |
+| Indicator | Manual | Original ranges | Restricted ranges | Lower DO | Lower DO + penalty |
+|---|---:|---:|---:|---:|---:|
+| EQI (kg poll./d) | 5576.7 | 31911.8 | 5756.2 | 5551.8 | 5714.0 |
+| OCI (total) | 9450.0 | 4137.0 | 10631.1 | 11265.3 | 11550.0 |
+| Aeration (kWh/d) | 4225.4 | 788.3 | 5032.4 | 3848.6 | 4368.5 |
+| External carbon cost | 2400.0 | 3647.5 | 2766.9 | 4494.3 | 4251.4 |
+| SNH violation (% time) | 0.41 | 91.31 | 0.25 | 12.93 | 15.14 |
+| TN violation (% time) | 1.18 | 90.75 | 5.16 | 0.45 | 1.13 |
+| SNH95 (mg N/L) | 1.54 | 50.57 | 1.42 | 5.80 | 6.19 |
+| TN95 (mg N/L) | 16.75 | 52.82 | 18.03 | 15.47 | 16.40 |
 
-Lower is better for the cost and violation metrics. The controller clearly reduced several resource terms, but the higher EQI and ammonium violation time mean it should be read as a research result rather than a finished control policy.
+Reading:
+
+- Original ranges reach the lowest OCI but through underaeration: EQI rises about 5.7x and ammonia is violated 91% of the time. Not a genuine saving.
+- Restricted ranges are the most reliable learned configuration: ammonia compliant (0.25%), EQI near baseline, but OCI about 12.5% above the manual baseline.
+- Lowering the dissolved-oxygen bound recovers some aeration saving but breaks ammonia compliance (12.93%); the tested soft penalty does not fix it (15.14%).
+
+No learned configuration improves the manual baseline while respecting the official effluent limits. That is the intended result.
 
 ## Files
 
+- `results/bsm2_manual_baseline_official_summary.csv` - manual baseline, official metrics.
+- `results/game2_official_summary_20260620_091413.csv` - restricted-ranges run (the most reliable learned configuration).
+- `results/game2_official_summary_20260623_080230.csv` - lower dissolved-oxygen run.
 - `docs/validation/single_agent_validation_summary.csv` - single-agent diagnostic table.
-- `results/game2_final_audit/official_245_609_comparison.csv` - final run vs manual baseline.
-- `results/game2_final_audit/windows_summary.csv` - final run by time window.
-- `results/bsm2_manual_baseline_official_summary.csv` - manual baseline official-style metrics.
+- `results/game2_final_audit/` - an additional exploratory run kept for transparency; it is not one of the configurations reported in the thesis (Table 5.5).
