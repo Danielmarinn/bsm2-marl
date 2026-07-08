@@ -469,8 +469,9 @@ def self_test() -> None:
     row = _SELF_TEST_ROW
 
     safe_rewards, safe_metrics = compute_rewards(row, ACTION_DEFAULTS)
-    # Unit test: compute_joint_reward must implement
-    #   J = 200*EQI + 40*AE + 3*PE + EC; r = max(-5*J/J_MANUAL + 5, -5).
+    # compute_joint_reward must implement:
+    #   J = 200*EQI + 40*AE + 3*PE + EC
+    #   r = max(-5*J/J_MANUAL + 5, REWARD_FLOOR)
     # Tested directly so the assertion does not depend on the bsm2 bridge.
     from reward import compute_joint_reward, J_MANUAL, REWARD_FLOOR
     r_base, info_base = compute_joint_reward(
@@ -480,7 +481,7 @@ def self_test() -> None:
     )
     expected_base = -5.0 * (info_base["J"] / J_MANUAL) + 5.0
     assert abs(r_base - expected_base) < 1e-9, (
-        "reward must match -5*J/J_MANUAL + 5 at baseline."
+        "Joint reward must match -5*J/J_MANUAL + 5 at baseline."
     )
     r_floor, _ = compute_joint_reward(
         {"EQI_bsm2_inst": 5577.0 * 100, "AE_bsm2_inst": 4225.4 * 100,
@@ -488,7 +489,7 @@ def self_test() -> None:
         ACTION_DEFAULTS,
     )
     assert abs(r_floor - REWARD_FLOOR) < 1e-9, (
-        "reward must hit floor -5 at 100x baseline cost."
+        "Joint reward must hit REWARD_FLOOR at 100x baseline cost."
     )
     r_zero, _ = compute_joint_reward(
         {"EQI_bsm2_inst": 0.0, "AE_bsm2_inst": 0.0,
@@ -496,7 +497,7 @@ def self_test() -> None:
         ACTION_DEFAULTS,
     )
     assert abs(r_zero - 5.0) < 1e-9, (
-        "reward must equal 5 at J=0."
+        "Joint reward must equal 5 at J=0."
     )
     # --- independent modes ---
     for mode in ("sac-local", "sac-game2"):

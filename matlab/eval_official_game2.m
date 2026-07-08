@@ -1,25 +1,21 @@
-%% run_bsm2_manual_baseline.m - Manual BSM2 baseline, no Python handshake
+%% eval_official_game2.m - Official BSM2 metrics for a saved Game2 trajectory
 %
-% Purpose
-%   Run the default closed-loop BSM2 plant once from day 0 to day 609 and
-%   export one reusable baseline for all four SAC agents.
+% Computes the official BSM2 plant-performance numbers (EQI, OCI and its
+% components, 95th percentiles, effluent violations) over the standard
+% evaluation window (days 245..609) from a trajectory .mat saved by
+% RL_main_game2.m (save(..., '-v7.3') of the whole base workspace).
 %
-% Why this is faster than RL_main_simple.m
-%   The RL runner pauses every control interval and waits for Python. This
-%   baseline script does not pause for decisions; it lets Simulink run
-%   continuously with the manual/default BSM2 controls.
+% This reuses the exact official computation validated in
+% run_bsm2_manual_baseline.m (compute_official_bsm2_summary_from_base),
+% with no plots, no prompts and no risk module, so it is safe in -batch.
 %
-% Outputs
-%   prog_RL/results/bsm2_manual_baseline_timeseries.csv
-%   prog_RL/results/bsm2_manual_baseline_summary.csv
-%   prog_RL/results/bsm2_manual_baseline_official_summary.csv
+% Usage (PowerShell, from the repository root):
+%   & "C:\Program Files\MATLAB\R2025b\bin\matlab.exe" -batch "cd('matlab'); eval_official_game2"
 %
-% Usage in MATLAB
-%   init_bsm2
-%   run('matlab/run_bsm2_manual_baseline.m')
+% Optional: set TRAJFILE in the base workspace before calling to force a file,
+% otherwise the bounded 609-day LAB trajectory below is used.
 
-%% Project paths
-RL_DIR   = fileparts(fileparts(mfilename('fullpath')));
+RL_DIR     = fileparts(fileparts(mfilename('fullpath')));
 THESIS_DIR = fileparts(RL_DIR);
 UNI_DIR    = fileparts(THESIS_DIR);
 BSM2_DIR   = fullfile(THESIS_DIR, 'BSM2_R2019b');
@@ -27,260 +23,74 @@ if ~isfolder(BSM2_DIR)
     BSM2_DIR = fullfile(UNI_DIR, 'BSM2_R2019b');
 end
 if ~isfolder(BSM2_DIR)
-    error('[run_bsm2_manual_baseline] BSM2_R2019b folder not found. Checked Thesis work and Universidade folders.');
+    error('[eval] BSM2_R2019b folder not found. Checked LAB Thesis folder and Universidade folder.');
 end
-OUT_DIR  = fullfile(RL_DIR, 'results');
-
-if ~exist(OUT_DIR, 'dir')
-    mkdir(OUT_DIR);
-end
-
-baselinePath = fullfile(OUT_DIR, 'bsm2_manual_baseline_timeseries.csv');
-
-postprocessOnly = evalin('base', ...
-    'exist(''BSM2_BASELINE_POSTPROCESS_ONLY'', ''var'') == 1 && BSM2_BASELINE_POSTPROCESS_ONLY');
-if postprocessOnly
-    if exist(baselinePath, 'file') ~= 2
-        error('[baseline] Post-process requested, but baseline CSV does not exist: %s', baselinePath);
-    end
-    fprintf('[baseline] Post-processing existing baseline CSV: %s\n', baselinePath);
-    baseline = readtable(baselinePath);
-    if evalin('base', 'exist(''BSM2_BASELINE_ELAPSED_SECONDS'', ''var'') == 1')
-        elapsedSeconds = evalin('base', 'BSM2_BASELINE_ELAPSED_SECONDS');
-    elseif exist('elapsedSeconds', 'var') == 1
-        % Keeps the value if this mode is run immediately after a summary error.
-        elapsedSeconds = elapsedSeconds;
-    else
-        elapsedSeconds = NaN;
-    end
-    write_baseline_summaries(baseline, OUT_DIR, elapsedSeconds);
-    return
-end
-
-cd(BSM2_DIR);
 addpath(BSM2_DIR);
 addpath(fullfile(RL_DIR, 'matlab'));
 
-model = 'bsm2_cl';
+LOGS_DIR = fullfile(RL_DIR, 'logs');
+OUT_DIR  = fullfile(RL_DIR, 'results');
+DEFAULT_TRAJFILE = fullfile(LOGS_DIR, 'game2_traj_20260620_080319.mat');
+CSVFILE = fullfile(LOGS_DIR, 'game2_sac_training_log.csv');
 
-%% Stop and reload model cleanly
-if bdIsLoaded(model)
-    try
-        simStatus = get_param(model, 'SimulationStatus');
-    catch
-        simStatus = 'stopped';
-    end
-
-    if ~strcmpi(simStatus, 'stopped')
-        fprintf('[baseline] Stopping existing %s simulation...\n', model);
-        set_param(model, 'SimulationCommand', 'stop');
-        tStop = tic;
-        while ~strcmpi(get_param(model, 'SimulationStatus'), 'stopped')
-            pause(0.2);
-            if toc(tStop) > 60
-                error('[baseline] Timeout waiting for %s to stop.', model);
-            end
-        end
-    end
-
-    close_system(model, 0);
-end
-
-load_system(model);
-
-%% Initialize BSM2 defaults if available
-if exist('init_bsm2', 'file') == 2
-    fprintf('[baseline] Running init_bsm2...\n');
-    init_bsm2;
+if exist('TRAJFILE', 'var') == 1 && ~isempty(TRAJFILE)
+    trajfile = TRAJFILE;
 else
-    warning('[baseline] init_bsm2 not found on path. Continuing with current workspace values.');
+    trajfile = DEFAULT_TRAJFILE;
+    if exist(trajfile, 'file') ~= 2
+        error('[eval] Trajectory file not found: %s', trajfile);
+    end
 end
+fprintf('[eval] Trajectory file: %s\n', trajfile);
 
-%% Manual/default control values used by the thesis agents
-assignin('base', 'carb1', 2.0);      % Qec default, m3/d
-assignin('base', 'Qintr', 61944.0);  % Qint default, m3/d
-assignin('base', 'SO4ref', 2.0);     % DO setpoint default, mg/L
-assignin('base', 'Qw', 300.0);       % Qw low default, m3/d
-assignin('base', 'Qw_low', 300.0);
-assignin('base', 'Qw_high', 450.0);
+% Load the whole saved workspace into base (the helpers read via evalin base)
+load(trajfile);
+fprintf('[eval] Loaded. Variables in workspace: %d\n', numel(who));
 
-%% Fastest practical simulation setup
-dt = 15 / (24 * 60);
-
-set_param(model, 'StartTime', '0');
-set_param(model, 'StopTime', '609');
-set_param(model, 'OutputTimes', '[0:(1/96):609]');
-try
-    set_param(model, 'PauseTimes', '[]');
-catch pauseErr
-    fprintf('[baseline] PauseTimes not supported by this model (%s). Continuing without it.\n', pauseErr.message);
-end
-
-% Rapid accelerator is intentionally skipped for BSM2 closed loop. This
-% model contains algebraic loops, so standalone rapid-accelerator code
-% generation fails. Normal accelerator is the fastest stable mode here.
-set_param(model, 'SimulationMode', 'accelerator');
-simMode = 'accelerator';
-
-fprintf('[baseline] Starting manual BSM2 run: t=0..609 days, mode=%s\n', simMode);
-tRun = tic;
-try
-    run_simulation_with_progress(model, 609);
-catch simErr
-    rethrow(simErr);
-end
-elapsedSeconds = toc(tRun);
-fprintf('[baseline] Simulation finished in %.1f seconds.\n', elapsedSeconds);
-
-%% Collect BSM2 workspace outputs
-requiredVars = {'t', 'reac1', 'reac2', 'reac3', 'reac4', 'reac5', 'settler'};
-for i = 1:numel(requiredVars)
-    if evalin('base', sprintf('exist(''%s'', ''var'')', requiredVars{i})) ~= 1
-        error('[baseline] Required workspace variable missing after sim: %s', requiredVars{i});
+% Quick diagnostic: are the energy inputs time-series (good) or scalars?
+diag_vars = {'t','effluent','reac4','digesterout','kla4in','carbon1in'};
+for k = 1:numel(diag_vars)
+    nm = diag_vars{k};
+    if exist(nm, 'var') == 1
+        v = eval(nm);
+        fprintf('[eval]   %-12s size [%s]  class %s\n', nm, num2str(size(v)), class(v));
+    else
+        fprintf('[eval]   %-12s MISSING\n', nm);
     end
 end
 
-t       = evalin('base', 't');
-reac1   = evalin('base', 'reac1');
-reac2   = evalin('base', 'reac2');
-reac3   = evalin('base', 'reac3');
-reac4   = evalin('base', 'reac4');
-reac5   = evalin('base', 'reac5');
-settler = evalin('base', 'settler');
-
-if evalin('base', 'exist(''DYNINFLUENT_BSM2'', ''var'')') == 1
-    influent = evalin('base', 'DYNINFLUENT_BSM2');
+% Training-log CSV: holds the time-aligned applied external carbon (Qec). The
+% plant logs the carbon signal only coarsely in the .mat, so the carbon OCI
+% term is recomputed from this CSV.
+if exist(CSVFILE, 'file') ~= 2
+    csvfile = '';
 else
-    influent = [];
+    csvfile = CSVFILE;
 end
 
-N = min([numel(t), size(reac1, 1), size(reac2, 1), size(reac3, 1), ...
-         size(reac4, 1), size(reac5, 1), size(settler, 1)]);
-t = t(1:N);
-reac1 = reac1(1:N, :);
-reac2 = reac2(1:N, :);
-reac3 = reac3(1:N, :);
-reac4 = reac4(1:N, :);
-reac5 = reac5(1:N, :);
-settler = settler(1:N, :);
-if ~isempty(influent)
-    influent = influent(1:min(N, size(influent, 1)), :);
+% Compute the official summary (same logic as the validated baseline pipeline)
+summary = compute_official_bsm2_summary_from_base(NaN, csvfile);
+
+% Write CSV
+if ~exist(OUT_DIR, 'dir'), mkdir(OUT_DIR); end
+stamp = datestr(now, 'yyyymmdd_HHMMSS');
+outcsv = fullfile(OUT_DIR, ['game2_official_summary_' stamp '.csv']);
+writetable(summary, outcsv);
+fprintf('[eval] Wrote official summary CSV: %s\n', outcsv);
+
+% Print the headline numbers
+fprintf('\n===== OFFICIAL BSM2 METRICS (days 245..609) =====\n');
+for r = 1:size(summary,1)
+    fprintf('%-34s %12.4g\n', summary.metric{r}, summary.value(r));
 end
+fprintf('=================================================\n');
+disp('EVAL_OFFICIAL_DONE');
 
-%% Build reusable baseline table
-SNO_1 = reac1(:, 9);
-SNO_2 = reac2(:, 9);
-SNO_3 = reac3(:, 9);
-SNO_5 = reac5(:, 9);
-SNH_2 = reac2(:, 10);
-SNH_4 = reac4(:, 10);
-SNH_5 = reac5(:, 10);
-SO_4  = reac4(:, 8);
-SO_5  = reac5(:, 8);
-SND_5 = reac5(:, 11);
-TSS_3 = reac3(:, 14);
-TSS_5 = reac5(:, 14);
 
-Qec_default = 2.0;
-Qint_default = 61944.0;
-SO4ref_default = 2.0;
-Qw_default = settler(:, 22);
+%% ---- validated official computation (copied verbatim from run_bsm2_manual_baseline.m) ----
 
-if ~isempty(influent) && size(influent, 2) >= 16
-    Flow = influent(:, 16);
-    if numel(Flow) < N
-        Flow(end+1:N, 1) = Flow(end);
-    end
-    SS_in = influent(:, 3);
-    SI_in = influent(:, 2);
-    SNH_in = influent(:, 11);
-    if numel(SS_in) < N
-        SS_in(end+1:N, 1) = SS_in(end);
-        SI_in(end+1:N, 1) = SI_in(end);
-        SNH_in(end+1:N, 1) = SNH_in(end);
-    end
-else
-    Flow = repmat(20648.0, N, 1);
-    SS_in = nan(N, 1);
-    SI_in = nan(N, 1);
-    SNH_in = nan(N, 1);
-end
-
-CODTN = (SS_in + SI_in) ./ max(SNH_in, 1.0);
-CODTN = min(max(CODTN, 0), 100);
-
-% Thesis reward proxy, matching prog_RL/core/reward.py.
-J_MANUAL = 1293523.0;
-AE = repmat(4000.0, N, 1);
-PE = repmat(0.05 * Qint_default, N, 1);
-EC = repmat(Qec_default * 400000.0 / 1000000.0, N, 1);
-EQI = Flow .* (30.0 .* SNH_2 + 10.0 .* SNO_2) ./ 1000.0;
-J = 200.0 .* EQI + 40.0 .* AE + 3.0 .* PE + EC;
-ratio = J ./ J_MANUAL;
-reward = max(-5.0 .* ratio + 5.0, -1.0);
-
-baseline = table(t(:), SNO_1, SNO_2, SNO_3, SNO_5, SNH_2, SNH_4, SNH_5, ...
-    SO_4, SO_5, SND_5, TSS_3, TSS_5, Flow(:), CODTN(:), ...
-    repmat(Qec_default, N, 1), repmat(Qint_default, N, 1), ...
-    repmat(SO4ref_default, N, 1), Qw_default, EQI, AE, PE, EC, J, ratio, reward, ...
-    'VariableNames', {'time','SNO_1','SNO_2','SNO_3','SNO_5','SNH_2','SNH_4','SNH_5', ...
-    'SO_4','SO_5','SND_5','TSS_3','TSS_5','Flow','CODTN', ...
-    'Qec','Qint','SO4ref','Qw','EQI','AE','PE','EC','J','ratio','reward'});
-
-writetable(baseline, baselinePath);
-write_baseline_summaries(baseline, OUT_DIR, elapsedSeconds);
-
-function write_baseline_summaries(baseline, OUT_DIR, elapsedSeconds)
-    %% Summary for the standard BSM2 evaluation period
-    baselinePath = fullfile(OUT_DIR, 'bsm2_manual_baseline_timeseries.csv');
-    evalMask = baseline.time >= 245 & baseline.time <= 609;
-    evalData = baseline(evalMask, :);
-
-    metricNames = {'rows'; 'start_day'; 'stop_day'; 'elapsed_seconds'; ...
-        'mean_EQI'; 'mean_AE'; 'mean_PE'; 'mean_EC'; 'mean_J'; 'mean_ratio'; 'mean_reward'; ...
-        'mean_SNO_2'; 'mean_SNO_3'; 'mean_SNO_5'; 'mean_SNH_2'; 'mean_SNH_5'; ...
-        'mean_SO_4'; 'mean_SO_5'; 'mean_TSS_5'; 'mean_Qec'; 'mean_Qint'; 'mean_Qw'};
-    metricValues = [size(evalData, 1); 245; 609; elapsedSeconds; ...
-        mean(evalData.EQI, 'omitnan'); mean(evalData.AE, 'omitnan'); ...
-        mean(evalData.PE, 'omitnan'); mean(evalData.EC, 'omitnan'); ...
-        mean(evalData.J, 'omitnan'); mean(evalData.ratio, 'omitnan'); ...
-        mean(evalData.reward, 'omitnan'); mean(evalData.SNO_2, 'omitnan'); ...
-        mean(evalData.SNO_3, 'omitnan'); mean(evalData.SNO_5, 'omitnan'); ...
-        mean(evalData.SNH_2, 'omitnan'); mean(evalData.SNH_5, 'omitnan'); ...
-        mean(evalData.SO_4, 'omitnan'); mean(evalData.SO_5, 'omitnan'); ...
-        mean(evalData.TSS_5, 'omitnan'); mean(evalData.Qec, 'omitnan'); ...
-        mean(evalData.Qint, 'omitnan'); mean(evalData.Qw, 'omitnan')];
-
-    summary = table(metricNames, metricValues, 'VariableNames', {'metric', 'value'});
-    summaryPath = fullfile(OUT_DIR, 'bsm2_manual_baseline_summary.csv');
-    writetable(summary, summaryPath);
-
-    %% Official-style BSM2 closed-loop metrics
-    % These follow the plant-performance definitions in the official BSM2
-    % closed-loop package, especially perf_plant_bsm2.m:
-    %   - standard evaluation window: days 245..609
-    %   - EQI with BSM2/BSM1 pollutant weights
-    %   - OCI with aeration, pumping, mixing, sludge, carbon, methane/heating
-    %   - effluent violation time/counts and 95th percentiles
-    try
-        officialSummary = compute_official_bsm2_summary_from_base(elapsedSeconds);
-    catch officialErr
-        officialSummary = table( ...
-            {'official_metrics_available'; 'elapsed_seconds'}, ...
-            [0; elapsedSeconds], ...
-            {'Official BSM2 summary failed after simulation'; officialErr.message}, ...
-            'VariableNames', {'metric','value','note'});
-    end
-    officialSummaryPath = fullfile(OUT_DIR, 'bsm2_manual_baseline_official_summary.csv');
-    writetable(officialSummary, officialSummaryPath);
-
-    fprintf('[baseline] Wrote time-series: %s\n', baselinePath);
-    fprintf('[baseline] Wrote summary    : %s\n', summaryPath);
-    fprintf('[baseline] Wrote official   : %s\n', officialSummaryPath);
-    fprintf('[baseline] Evaluation rows days 245..609: %d\n', size(evalData, 1));
-end
-
-function summary = compute_official_bsm2_summary_from_base(elapsedSeconds)
+function summary = compute_official_bsm2_summary_from_base(elapsedSeconds, csvfile)
+    if nargin < 2, csvfile = ''; end
     required = {'t','in','reac1','reac2','reac3','reac4','reac5','settler', ...
         'effluent','sludge','rec','primaryout','thickenerout','digesterin', ...
         'digesterout','dewateringout','storageout','qpassplant','qpassAS'};
@@ -295,7 +105,7 @@ function summary = compute_official_bsm2_summary_from_base(elapsedSeconds)
         summary = table( ...
             {'official_metrics_available'; 'elapsed_seconds'}, ...
             [0; elapsedSeconds], ...
-            {'Missing required BSM2 workspace variables after simulation'; strjoin(missing, ', ')}, ...
+            {'Missing required BSM2 workspace variables'; strjoin(missing, ', ')}, ...
             'VariableNames', {'metric','value','note'});
         return
     end
@@ -352,7 +162,7 @@ function summary = compute_official_bsm2_summary_from_base(elapsedSeconds)
     f_P = bsm2_base_value('f_P', 0.08);
     ACTIVATE = bsm2_base_value('ACTIVATE', 0);
     if ACTIVATE > 0.5
-        warning('[baseline] Dummy-variable ACTIVATE mode is not included in the compact official summary.');
+        warning('[eval] Dummy-variable ACTIVATE mode is not included in the compact official summary.');
     end
 
     BSS = 2;
@@ -435,6 +245,18 @@ function summary = compute_official_bsm2_summary_from_base(elapsedSeconds)
         reac1part, reac2part, reac3part, reac4part, reac5part, settlerpart, sludgepart, ...
         primarypart, thickenerpart, digesterinpart, digesteroutpart, dewateringoutpart, ...
         storagepart, recpart);
+
+    % Recompute the carbon OCI term from the time-aligned applied Qec (the .mat
+    % logs the carbon signal coarsely, which biases the resampled value).
+    CARBONSOURCECONC = bsm2_base_value('CARBONSOURCECONC', 400000);
+    if ~isempty(csvfile) && exist(csvfile, 'file') == 2
+        cmpd = carbon_from_csv(csvfile, CARBONSOURCECONC, starttime, stoptime);
+        if isfinite(cmpd)
+            official_energy.OCI = official_energy.OCI - official_energy.carbonmasscost + 3*cmpd;
+            official_energy.carbonmasscost = 3 * cmpd;
+            official_energy.carbonmassperd = cmpd;
+        end
+    end
 
     SNH95 = prctile(SNHevec2, 95);
     TN95 = prctile(totalNevec2, 95);
@@ -647,6 +469,31 @@ function out = compute_official_oci_components(timevector, totalt, startindex, s
     out.Methaneprodperd = Methaneprodperd;
 end
 
+function cmpd = carbon_from_csv(csvfile, CONC, a, b)
+    % Time-weighted mean applied external carbon (Qec) over [a,b) -> kg COD/d.
+    cmpd = NaN;
+    try
+        opts = detectImportOptions(csvfile);
+        qcol = 'Qec_applied_for_reward';
+        if ~ismember(qcol, opts.VariableNames), qcol = 'Qec'; end
+        opts.SelectedVariableNames = {'time', qcol};
+        T = readtable(csvfile, opts);
+    catch
+        return
+    end
+    tt = T.time;
+    q = T.(qcol);
+    ok = isfinite(tt) & isfinite(q);
+    tt = tt(ok); q = q(ok);
+    [tt, ix] = sort(tt); q = q(ix);
+    if numel(tt) < 2, return; end
+    dt = [diff(tt); 0];
+    dt = min(max(dt, 0), 0.05);
+    m = tt >= a & tt < b;
+    if ~any(m), return; end
+    cmpd = sum(q(m) .* dt(m)) / sum(dt(m)) * CONC / 1000;
+end
+
 function value = bsm2_base_value(name, defaultValue)
     if evalin('base', sprintf('exist(''%s'', ''var'')', name)) == 1
         value = evalin('base', name);
@@ -656,10 +503,19 @@ function value = bsm2_base_value(name, defaultValue)
 end
 
 function out = vectorize_control_signal(invariable, outvecsize)
-    if size(invariable, 1) > 1
-        out = invariable;
+    N = outvecsize(1);
+    m = size(invariable, 1);
+    if m <= 1
+        out = ones(outvecsize) .* invariable;          % scalar -> constant vector
+    elseif m == N
+        out = invariable;                               % already aligned to t
     else
-        out = ones(outvecsize) .* invariable;
+        % Control input logged at a coarser/different rate than t (e.g. the
+        % external-carbon signal). Zero-order-hold resample onto the t grid,
+        % assuming the signal spans the full simulation uniformly.
+        src = linspace(0, 1, m)';
+        dst = linspace(0, 1, N)';
+        out = interp1(src, invariable, dst, 'previous', 'extrap');
     end
 end
 
@@ -672,27 +528,4 @@ function [days, percent, count] = violation_stats(mask, timevector, totalt)
         return
     end
     count = 1 + sum(diff(idx) > 1);
-end
-
-function run_simulation_with_progress(model, stopDay)
-    set_param(model, 'SimulationCommand', 'start');
-    lastPrint = tic;
-    while true
-        status = get_param(model, 'SimulationStatus');
-        if strcmpi(status, 'stopped')
-            fprintf('[baseline] Simulink status: stopped.\n');
-            break
-        end
-        if toc(lastPrint) >= 10
-            try
-                tNow = get_param(model, 'SimulationTime');
-                fprintf('[baseline] still running: t=%.2f / %.2f days, status=%s\n', ...
-                    tNow, stopDay, status);
-            catch
-                fprintf('[baseline] still running: status=%s\n', status);
-            end
-            lastPrint = tic;
-        end
-        pause(0.5);
-    end
 end

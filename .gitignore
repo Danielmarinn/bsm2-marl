@@ -5,14 +5,20 @@ __pycache__/
 .venv/
 venv/
 
-# Runtime artifacts
+# Runtime artifacts and local plant assets
 logs/
 checkpoints/
 comms/
+BSM2_R2019b/
 *.mat
 *.pt
 *.log
-*.csv
+
+# Large generated tables. Small curated CSV summaries under docs/results are
+# tracked intentionally.
+results/*timeseries*.csv
+*_timeseries.csv
+game2_sac_training_log*.csv
 
 # Editor / OS
 .vscode/

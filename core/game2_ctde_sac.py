@@ -8,7 +8,7 @@ via attention without inflating actor input dimensions.
 
 This is the centralized-training decentralized-execution (CTDE) approach
 used in Nam et al. (2023): agents act on local information; the shared
-critic provides the training signal that accounts for joint behavior.
+critic provides the training signal that accounts for joint behaviour.
 """
 
 from __future__ import annotations

@@ -1,12 +1,12 @@
 function save_last_sample_to_csv(ws_var, output_file)
 % SAVE_LAST_SAMPLE_TO_CSV
-%   Extracts the last sample of a To Workspace variable (timeseries or struct)
-%   and saves it to CSV.
+%   Extrai a última amostra de uma variável To Workspace (timeseries ou struct)
+%   e guarda em CSV.
 %
-%   Usage:
-%       save_last_sample_to_csv(A_RB_in1, 'C:/path/raw_state.csv')
+%   Uso:
+%       save_last_sample_to_csv(A_RB_in1, 'C:/caminho/raw_state.csv')
 %
-%   Supported To Workspace block formats:
+%   Formatos suportados do bloco To Workspace:
 %       - Structure with time  (SaveFormat = 'Structure With Time')
 %       - Timeseries           (SaveFormat = 'Timeseries')
 %       - Array                (SaveFormat = 'Array')
@@ -17,24 +17,24 @@ function save_last_sample_to_csv(ws_var, output_file)
         signals = ws_var.signals;
         t       = ws_var.time;
 
-        % build table with all signal columns
+        % construir tabela com todas as colunas de sinais
         T = table();
-        T.time = t(end);   % last sample only
+        T.time = t(end);   % só última amostra
 
         if isstruct(signals)
-            % may be an array of structs (one per signal)
+            % pode ser array de structs (um por sinal)
             for k = 1:numel(signals)
                 sig    = signals(k);
                 vals   = sig.values;
                 label  = sig.label;
 
-                % last sample (last row)
+                % última amostra (última linha)
                 last = vals(end, :);
 
                 if size(last, 2) == 1
                     T.(label) = last;
                 else
-                    % vector signal — create col_1, col_2, ...
+                    % sinal vectorial — criar col_1, col_2, ...
                     for c = 1:size(last, 2)
                         col_name = sprintf('%s_%d', label, c);
                         T.(col_name) = last(c);
@@ -65,7 +65,7 @@ function save_last_sample_to_csv(ws_var, output_file)
         return
     end
 
-    %% --- Simple array (rows = samples, columns = signals) ---
+    %% --- Array simples (linhas = amostras, colunas = sinais) ---
     if isnumeric(ws_var)
 
         last = ws_var(end, :);
@@ -79,5 +79,5 @@ function save_last_sample_to_csv(ws_var, output_file)
         return
     end
 
-    error('save_last_sample_to_csv: unsupported format — %s', class(ws_var));
+    error('save_last_sample_to_csv: formato não suportado — %s', class(ws_var));
 end

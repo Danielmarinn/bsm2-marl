@@ -1,36 +1,36 @@
-%% matlab/RL_main_simple.m - Simple orchestrator (t=0 to t=609)
+%% matlab/RL_main_simple.m - Orquestrador simples (t=0 a t=609)
 %
-% Used to train ONE agent at a time. The AGENT variable at the top
-% selects which manipulated variable is controlled by Python:
-%   'qint' -> CTRL-2 (internal recirculation). Qec stays at BSM2 default (2 m3/d).
-%   'qec'  -> CTRL-1 (external carbon at R1). Qint stays at BSM2 default (61944 m3/d).
-%   'do'   -> CTRL-3 (SO4ref in the official R4 DO loop). Qec and Qint stay at BSM2 defaults.
-%   'qw'   -> CTRL-4 (waste sludge / Qw). Decides on a daily window; the other
-%             controls stay at BSM2 defaults.
+% Usado para treinar UM agente de cada vez. A variavel AGENT no topo
+% escolhe qual variavel manipulada e' controlada pelo Python:
+%   'qint' -> CTRL-2 (recirculacao interna). Qec fica no default BSM2 (2 m3/d).
+%   'qec'  -> CTRL-1 (carbono externo no R1). Qint fica no default BSM2 (61944 m3/d).
+%   'do'   -> CTRL-3 (SO4ref no loop oficial DO do R4). Qec e Qint ficam nos defaults BSM2.
+%   'qw'   -> CTRL-4 (waste sludge / Qw). Decide em janela diaria; os outros
+%             controlos ficam nos defaults BSM2.
 %
-% The three agents are mutually independent: each has its own
-% checkpoint and its own log. There is no state sharing
-% between runs - switching agents is just editing the
-% AGENT line below.
+% Os tres agentes sao mutuamente independentes: cada um tem o seu
+% proprio checkpoint e o seu proprio log. Nao existe qualquer partilha
+% de estado entre runs - alternar entre agentes e' apenas editar a linha
+% AGENT abaixo.
 %
-% IMPORTANT: the simulation runs from t=0 (not from t=245). Starting
-% at t=245 in accelerator mode completes instantly without giving the
-% loop time to pause. The first 245 days are stabilization - the
-% SAC agents only effectively learn from day 245 onward.
+% IMPORTANTE: a simulacao corre desde t=0 (nao desde t=245). Arrancar
+% em t=245 em accelerator mode completa instantaneamente sem dar tempo
+% ao loop para pausar. Os primeiros 245 dias sao estabilizacao - os
+% agentes SAC so aprendem efectivamente a partir do dia 245.
 %
-% BEFORE RUNNING:
-%   1. In MATLAB: init_bsm2
-%   2. Check that AGENT below is set to the desired value.
-%   3. In the terminal, start the matching agent:
+% ANTES DE CORRER:
+%   1. Em MATLAB: init_bsm2
+%   2. Verificar que AGENT abaixo esta no valor desejado.
+%   3. No terminal, arrancar o agente correspondente:
 %        AGENT='qint' -> python agents/ctrl_sac_qint.py
 %        AGENT='qec'  -> python agents/ctrl_sac_qec.py
 %        AGENT='do'   -> python agents/ctrl_sac_do.py
 %        AGENT='qw'   -> python agents/ctrl_sac_qw.py
-%   4. In MATLAB: run RL_main_simple
-%   (do NOT load states_day245.mat)
+%   4. Em MATLAB: run RL_main_simple
+%   (NAO carregar states_day245.mat)
 
 %% ===============================
-% Project paths
+% Paths do projecto
 %% ===============================
 RL_DIR   = fileparts(fileparts(mfilename('fullpath')));
 THESIS_DIR = fileparts(RL_DIR);
@@ -58,12 +58,12 @@ if bdIsLoaded(model)
     end
 
     if ~strcmpi(simStatus, 'stopped')
-        fprintf('[RL_main] Model %s was still %s. Stopping before reload...\n', ...
+        fprintf('[RL_main] Modelo %s ainda estava %s. A parar antes de recarregar...\n', ...
             model, simStatus);
         try
             set_param(model, 'SimulationCommand', 'stop');
         catch stopErr
-            warning('[RL_main] Stop request to the model failed: %s', stopErr.message);
+            warning('[RL_main] Falhou o pedido de stop ao modelo: %s', stopErr.message);
         end
 
         tStop = tic;
@@ -79,7 +79,7 @@ if bdIsLoaded(model)
             end
 
             if toc(tStop) > 60
-                error('[RL_main] Timeout waiting for %s to stop before reload.', model);
+                error('[RL_main] Timeout a aguardar que %s parasse antes de recarregar.', model);
             end
             pause(0.2);
         end
@@ -88,7 +88,7 @@ if bdIsLoaded(model)
     try
         close_system(model, 0);
     catch closeErr
-        warning('[RL_main] close_system failed on the first attempt: %s', closeErr.message);
+        warning('[RL_main] close_system falhou na primeira tentativa: %s', closeErr.message);
         pause(0.5);
         close_system(model, 0);
     end
@@ -96,43 +96,43 @@ end
 load_system(model);
 
 %% ===============================
-% Active agent selection
-%   'qint' -> trains CTRL-2, update_Qint_from_python
-%   'qec'  -> trains CTRL-1, update_Qec_from_python
-%   'do'   -> trains CTRL-3, update_DOref_from_python
-%   'qw'   -> trains CTRL-4, update_Qw_from_python
-% Run only ONE agent at a time.
+% Seleccao do agente activo
+%   'qint' -> treina CTRL-2, update_Qint_from_python
+%   'qec'  -> treina CTRL-1, update_Qec_from_python
+%   'do'   -> treina CTRL-3, update_DOref_from_python
+%   'qw'   -> treina CTRL-4, update_Qw_from_python
+% Correr apenas UM agente de cada vez.
 %% ===============================
 if exist('SIMPLE_AGENT', 'var') && ~isempty(SIMPLE_AGENT)
     AGENT = SIMPLE_AGENT;   % override from base workspace, e.g. SIMPLE_AGENT='do'
 else
-    AGENT = 'qw';    % <-- default; switch here between 'qint', 'qec', 'do' and 'qw'
+    AGENT = 'qw';    % <-- default; alternar aqui entre 'qint', 'qec', 'do' e 'qw'
 end
 
 if ~ismember(AGENT, {'qint','qec','do','qw'})
-    error('[RL_main] Invalid AGENT: %s (use ''qint'', ''qec'', ''do'' or ''qw'')', AGENT);
+    error('[RL_main] AGENT invalido: %s (usar ''qint'', ''qec'', ''do'' ou ''qw'')', AGENT);
 end
-fprintf('\n[RL_main] Active agent: %s\n', upper(AGENT));
+fprintf('\n[RL_main] Agente activo: %s\n', upper(AGENT));
 
 %% ===============================
-% Time parameters
+% Parametros de tempo
 %% ===============================
-dt      = 15 / (24*60);   % 15 minutes in days
+dt      = 15 / (24*60);   % 15 minutos em dias
 tol     = 1e-6;
-TIMEOUT = 30;             % seconds to wait for Python
-ABORT_ON_TIMEOUT = true;  % for validation runs, fail early and do not continue with defaults
+TIMEOUT = 30;             % segundos a aguardar pelo Python
+ABORT_ON_TIMEOUT = true;  % para runs de validacao, falhar cedo e nao continuar com defaults
 FAST_SAMPLES_PER_DAY = max(2, round(1.0 / dt));
 SRT_WINDOW_DAYS = 3.0;
 SRT_WINDOW_SAMPLES = max(FAST_SAMPLES_PER_DAY, round(SRT_WINDOW_DAYS / dt));
 
 if strcmp(AGENT, 'qw')
-    agent_dt = 1.0;       % CTRL-4 decides once per day
+    agent_dt = 1.0;       % CTRL-4 decide 1x por dia
 else
-    agent_dt = dt;        % CTRL-1/2/3 keep 15 min
+    agent_dt = dt;        % CTRL-1/2/3 mantem 15 min
 end
 
 %% ===============================
-% Communication file paths
+% Paths dos ficheiros de comunicacao
 %% ===============================
 FLAG_STATE  = fullfile(COMMS, 'flag_state.run');
 FLAG_ACTION = fullfile(COMMS, 'flag_action.run');
@@ -140,14 +140,14 @@ STATE_FILE  = fullfile(COMMS, 'state.csv');
 ACTION_FILE = fullfile(COMMS, 'action.csv');
 
 %% ===============================
-% Clear old flags
+% Limpar flags antigos
 %% ===============================
-disp('[RL_main] Clearing old flags...');
+disp('[RL_main] Limpando flags antigos...');
 if isfile(FLAG_STATE),  delete(FLAG_STATE);  end
 if isfile(FLAG_ACTION), delete(FLAG_ACTION); end
 
 %% ===============================
-% Configure simulation - from t=0
+% Configurar simulacao - desde t=0
 %% ===============================
 set_param('bsm2_cl', 'SimulationMode', 'accelerator');
 set_param('bsm2_cl', 'StartTime',   '0');
@@ -174,19 +174,19 @@ else
     end
 end
 set_param('bsm2_cl', 'SimulationCommand', 'start');
-fprintf('[RL_main] Simulation started (t=0 -> t=609, agent=%s)...\n', AGENT);
+fprintf('[RL_main] Simulacao iniciada (t=0 -> t=609, agente=%s)...\n', AGENT);
 
-% Wait for startup
+% Aguardar arranque
 pause(0.5);
 while strcmp(get_param('bsm2_cl', 'SimulationStatus'), 'initializing')
     pause(0.1);
 end
 
-% First pause at the next decision instant
+% Primeira pausa no proximo instante de decisao
 next_pause_time = agent_dt;
 
 %% ===============================
-% Main loop
+% Loop principal
 %% ===============================
 while true
 
@@ -194,7 +194,7 @@ while true
 
     simStatus = get_param('bsm2_cl', 'SimulationStatus');
     if strcmp(simStatus, 'stopped')
-        disp('[RL_main] Simulation finished.');
+        disp('[RL_main] Simulacao finalizada.');
         break
     end
 
@@ -212,22 +212,22 @@ while true
             while ~strcmp(get_param('bsm2_cl', 'SimulationStatus'), 'paused')
                 pause(0.02);
                 if toc(t_p) > 10
-                    warning('[RL_main] Timeout waiting for pause.');
+                    warning('[RL_main] Timeout a aguardar pausa.');
                     break
                 end
             end
 
             t_sim = get_param('bsm2_cl', 'SimulationTime');
-            fprintf('\n[RL_main] t = %.4f days\n', t_sim);
+            fprintf('\n[RL_main] t = %.4f dias\n', t_sim);
 
-            %% --- Collect observations ---
+            %% --- Coleccionar observacoes ---
             if strcmp(AGENT, 'do')
                 t_vars = tic;
                 while ~(exist('reac4', 'var') == 1 && exist('reac5', 'var') == 1 && ...
                         ~isempty(reac4) && ~isempty(reac5))
                     pause(0.05);
                     if toc(t_vars) > 10
-                        error('[RL_main] reac4/reac5 did not become available in the workspace for AGENT=''do''.');
+                        error('[RL_main] reac4/reac5 nao ficaram disponiveis no workspace para AGENT=''do''.');
                     end
                 end
 
@@ -246,7 +246,7 @@ while true
                 fprintf('[RL_main] SO4=%.4f SNH4=%.4f SNH5=%.4f SNO3=%.4f TSS3=%.4f\n', ...
                     SO_4, SNH_4, SNH_5, SNO_3, TSS_3);
 
-                %% --- Write state.csv (CTRL-3) ---
+                %% --- Escrever state.csv (CTRL-3) ---
                 T_csv = table(SO_4, SNH_4, SNH_5, SNO_3, TSS_3, t_sim, ...
                     'VariableNames', {'SO_4','SNH_4','SNH_5','SNO_3','TSS_3','time'});
                 writetable(T_csv, STATE_FILE);
@@ -262,8 +262,8 @@ while true
                         ~isempty(reac4) && ~isempty(reac5) && ~isempty(settler))
                     pause(0.05);
                     if toc(t_vars) > 10
-                        error(['[RL_main] reac1..5/settler did not become available ' ...
-                               'in the workspace for AGENT=''qw''.']);
+                        error(['[RL_main] reac1..5/settler nao ficaram disponiveis ' ...
+                               'no workspace para AGENT=''qw''.']);
                     end
                 end
 
@@ -309,7 +309,7 @@ while true
                          'SNH5_1d=%.4f EQI_1d=%.4f Qw_1d=%.4f\n'], ...
                     TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d, Qw_mean_1d);
 
-                %% --- Write state.csv (CTRL-4) ---
+                %% --- Escrever state.csv (CTRL-4) ---
                 T_csv = table(TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d, ...
                     Qw_mean_1d, SNO_3_1d, t_sim, ...
                     'VariableNames', ...
@@ -317,16 +317,16 @@ while true
                      'EQI_1d','Qw_mean_1d','SNO_3_1d','time'});
                 writetable(T_csv, STATE_FILE);
             else
-                % Observations are the same for CTRL-1 and CTRL-2:
-                % nitrate in reactors 1/2/3 + influent COD/TN ratio.
-                % reac1/2/3: arrays updated by Simulink (To Workspace)
-                % do NOT use S_NO1/S_NO2 - they are initialization scalars
-                SNO_1 = reac1(end, 9);    % nitrate reactor 1 (anoxic)
-                SNO_2 = reac2(end, 9);    % nitrate reactor 2 (anoxic)
-                SNO_3 = reac3(end, 9);    % nitrate reactor 3 (aerobic)
-                SNH_2 = reac2(end, 10);   % ammonia reactor 2
+                % As observacoes sao as mesmas para CTRL-1 e CTRL-2:
+                % nitrato nos reactores 1/2/3 + racio COD/TN do afluente.
+                % reac1/2/3: arrays actualizados pelo Simulink (To Workspace)
+                % NAO usar S_NO1/S_NO2 - sao escalares de inicializacao
+                SNO_1 = reac1(end, 9);    % nitrato reactor 1 (anoxico)
+                SNO_2 = reac2(end, 9);    % nitrato reactor 2 (anoxico)
+                SNO_3 = reac3(end, 9);    % nitrato reactor 3 (aerobio)
+                SNH_2 = reac2(end, 10);   % amonia reactor 2
 
-                % in: 1x21 vector of the current influent (updated)
+                % in: vector 1x21 do influente actual (actualizado)
                 SS_in  = in(3);
                 SI_in  = in(2);
                 SNH_in = in(11);
@@ -339,7 +339,7 @@ while true
                 fprintf('[RL_main] SNO2=%.4f SNO1=%.4f SNO3=%.4f CODTN=%.2f SNH=%.4f\n', ...
                     SNO_2, SNO_1, SNO_3, CODTN, SNH_2);
 
-                %% --- Write state.csv (CTRL-1 / CTRL-2) ---
+                %% --- Escrever state.csv (CTRL-1 / CTRL-2) ---
                 T_csv = table(SNO_2, SNO_1, SNO_3, CODTN, SNH_2, Flow, Temp, t_sim, ...
                     'VariableNames', ...
                     {'SNO_2','SNO_1','SNO_3','CODTN','SNH_in','Flow','Temp','time'});
@@ -348,22 +348,22 @@ while true
 
             if isfile(FLAG_STATE), delete(FLAG_STATE); end
             fid = fopen(FLAG_STATE, 'w'); fclose(fid);
-            disp('[RL_main] flag_state created');
+            disp('[RL_main] flag_state criado');
 
-            %% --- Wait for action from Python ---
-            disp('[RL_main] Waiting for action from Python...');
+            %% --- Aguardar accao do Python ---
+            disp('[RL_main] Aguardando accao do Python...');
             t_wait = tic;
             while ~isfile(FLAG_ACTION)
                 pause(0.05);
                 if toc(t_wait) > TIMEOUT
                     if ABORT_ON_TIMEOUT
                         if isfile(FLAG_STATE), delete(FLAG_STATE); end
-                        error(['[RL_main] TIMEOUT waiting for action from Python ' ...
-                               sprintf('(AGENT=%s, t=%.4f days). ', AGENT, t_sim) ...
-                               'Run invalid for clean validation; fix the agent ' ...
-                               'and restart from scratch.']);
+                        error(['[RL_main] TIMEOUT a aguardar accao do Python ' ...
+                               sprintf('(AGENT=%s, t=%.4f dias). ', AGENT, t_sim) ...
+                               'Run invalido para validacao limpa; corrigir o agente ' ...
+                               'e recomecar de raiz.']);
                     end
-                    warning('[RL_main] TIMEOUT - applying BSM2 default.');
+                    warning('[RL_main] TIMEOUT - aplicando default BSM2.');
                     if strcmp(AGENT, 'qint')
                         Tdef = table(61944.0, 'VariableNames', {'Qec'});
                     elseif strcmp(AGENT, 'qec')
@@ -387,12 +387,12 @@ while true
                     break
                 end
             end
-            disp('[RL_main] Action received');
+            disp('[RL_main] Accao recebida');
 
-            %% --- Apply action ---
-            % Routing based on the active agent. By construction,
-            % only one of these functions is called per run - the other
-            % manipulated variable stays at its BSM2 default.
+            %% --- Aplicar accao ---
+            % Encaminhamento em funcao do agente activo. Por construcao,
+            % so uma destas funcoes e' chamada em cada run - a outra
+            % variavel manipulada fica no seu default BSM2.
             if strcmp(AGENT, 'qint')
                 update_Qint_from_python(ACTION_FILE);
             elseif strcmp(AGENT, 'qec')
@@ -404,12 +404,12 @@ while true
             end
 
             delete(FLAG_ACTION);
-            disp('[RL_main] flag_action consumed');
+            disp('[RL_main] flag_action consumido');
 
-            %% --- Resume simulation ---
+            %% --- Retomar simulacao ---
             next_pause_time = next_pause_time + agent_dt;
             set_param('bsm2_cl', 'SimulationCommand', 'continue');
-            disp('[RL_main] Simulation resumed');
+            disp('[RL_main] Simulacao retomada');
 
         end
     end

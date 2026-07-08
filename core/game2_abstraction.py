@@ -23,10 +23,10 @@ FEATURE_SCHEMA_VERSION = 1
 AGENT_ORDER = ("qec", "qint", "do", "qw")
 
 ACTION_BOUNDS = {
-    "qec": (0.0, 5.0),
-    "qint": (5_000.0, 61_944.0),
-    "do": (0.0, 10.0),
-    "qw": (0.0, 450.0),
+    "qec": (1.0, 4.0),
+    "qint": (41_296.0, 61_944.0),
+    "do": (1.0, 4.0),
+    "qw": (250.0, 450.0),
 }
 
 ACTION_DEFAULTS = {

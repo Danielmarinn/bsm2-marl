@@ -1,0 +1,5 @@
+controller,log_file,rows,last_step,last_mode,sac_rows,checkpoint_total_steps,action_column,action_min,action_max,action_bounds,action_within_bounds,reward_min,reward_max,reward_last,reward_mean_last50,state_columns_present,checkpoint_exists,notes
+CTRL-1 / Qec,ctrl1_qec_training_optionB.csv,58401,58400,SAC,57401,58000,Qec_new,0.0,5.0,"[0.0, 5.0]",True,-1.0,3.114270903733571,1.5949949655742062,1.2098537626876402,True,True,Restored full validated run from the archived BSM2 workspace.
+CTRL-2 / Qint,ctrl2_qint_training.csv,58401,58400,SAC,57401,58000,Qint_new,5000.0,61944.0,"[5000.0, 61944.0]",True,-1.0,3.15585882796249,1.6387329384725025,1.2563700058940594,True,True,
+CTRL-3 / DO / SO4ref,ctrl3_do_training.csv,47401,47400,SAC,46401,47000,SO4ref_new,7.62939453125e-06,9.99993133544922,"[0.0, 10.0]",True,-1.0,1.865276770033649,0.5409732196587775,0.6450306490177766,True,True,
+CTRL-4 / Qw,ctrl4_qw_training.csv,608,607,SAC,548,608,Qw_new,0.1934661865234375,448.5481262207031,"[0.0, 450.0]",True,0.0,2.817643000142262,1.7474860059120338,1.7608171360459115,True,True,Uses the clean resumed segment so plant time is continuous.

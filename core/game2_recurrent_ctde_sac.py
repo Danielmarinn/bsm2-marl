@@ -39,8 +39,12 @@ class RecurrentCTDESACConfig:
 
     # Asymmetric rates: critic faster than actor. This is the two-timescale
     # actor-critic principle (Konda & Tsitsiklis 2000) -- a slower actor lets
-    # the centralized critic track a more stable target. NOT from Nam et al.
-    # (he reports no learning rates and used Central-V, not SAC).
+    # the centralised critic track a more stable target. NOT from Nam et al.
+    # (he reports no learning rates and used Central-V, not SAC). Validated on
+    # this base by an offline multi-seed probe on the real BSM2 baseline
+    # trajectory: vs symmetric 3e-4/3e-4, the asymmetric setting held peak
+    # critic loss ~10x lower and actually settled, while symmetric stayed in a
+    # high, non-settling regime. Neither diverged to NaN.
     lr_actor: float = 5e-5
     lr_critic: float = 3e-4
     # (no lr_alpha: alpha is fixed, see config.fixed_alpha -- no alpha optimizer)
@@ -51,8 +55,10 @@ class RecurrentCTDESACConfig:
     batch_size: int = 32          # sequences, not individual rows
     buffer_size: int = 200_000
     # 5_000 steps (~52 sim days) of uniform random delta exploration before
-    # training kicks in. The critic needs a wide experience window to form
-    # stable Q-targets before the actor starts following its gradient.
+    # training kicks in. Increased from 1_000 after the bridge-fix run3
+    # diverged: with the bridge now actually applying actions, the critic
+    # needs a wider experience window to form stable Q-targets before the
+    # actor starts following its gradient.
     warmup_steps: int = 5_000
     seq_len: int = 32
     burn_in: int = 8
@@ -61,9 +67,10 @@ class RecurrentCTDESACConfig:
     updates_per_step: int = 1
 
     # Disable SAC alpha auto-tuning. Per-agent auto-tune on a shared joint
-    # reward can collapse alpha and kill exploration. Fixed alpha keeps
-    # entropy regularization stable throughout training and is the standard
-    # choice in cooperative MARL with a shared reward.
+    # reward collapsed alpha 60x in 200 sim days and killed exploration in
+    # run4. Fixed alpha keeps entropy regularisation stable throughout
+    # training and is the standard choice in cooperative MARL with a
+    # shared reward.
     fixed_alpha: float = 0.2
 
 
@@ -153,6 +160,7 @@ class RecurrentCTDEMultiAgentSAC:
         self.actor_hard_attentions: dict[str, ActorHardAttention] = {}
         self.opt_actors: dict[str, torch.optim.Adam] = {}
         self.log_alphas: dict[str, torch.Tensor] = {}
+        self.opt_alphas: dict[str, torch.optim.Adam] = {}
         self.state_means: dict[str, torch.Tensor] = {}
         self.state_stds: dict[str, torch.Tensor] = {}
         self._actor_h: dict[str, torch.Tensor | None] = {n: None for n in self.agent_names}
@@ -180,12 +188,13 @@ class RecurrentCTDEMultiAgentSAC:
                 + list(self.actors[name].parameters()),
                 lr=config.lr_actor,
             )
-            # Fixed alpha (no auto-tune). log_alpha is a non-trainable buffer.
-            # See config.fixed_alpha.
+            # Fixed alpha (no auto-tune). log_alpha is a non-trainable buffer;
+            # no opt_alphas optimizer is created. See config.fixed_alpha.
             log_alpha = torch.tensor(
                 math.log(config.fixed_alpha), requires_grad=False
             )
             self.log_alphas[name] = log_alpha
+            self.opt_alphas[name] = None
             mean, std = build_normalisation(name, obs_dim)
             self.state_means[name] = torch.as_tensor(mean, dtype=torch.float32)
             self.state_stds[name] = torch.as_tensor(std + 1e-8, dtype=torch.float32)
@@ -211,6 +220,7 @@ class RecurrentCTDEMultiAgentSAC:
             buffer_size=config.buffer_size,
         )
         self.total_steps = 0
+        self.target_entropies = {name: -1.0 for name in self.agent_names}
 
     def _norm(self, name: str, obs: np.ndarray) -> torch.Tensor:
         t = torch.as_tensor(np.asarray(obs, dtype=np.float32))
@@ -439,12 +449,16 @@ class RecurrentCTDEMultiAgentSAC:
             q1_pi, q2_pi = self.critic(obs_n, self._norm_actions(joint))
             q_pi = torch.min(q1_pi, q2_pi)
 
-            # Per-agent MASAC actor update with a centralized critic. Agent i
+            # Per-agent MASAC actor update with a centralised critic. Agent i
             # differentiates the joint Q only w.r.t. its own (reparameterised)
             # action while the other agents' replay actions stay fixed, so it
             # gets an individual credit signal (its own dQ/da_i) even though
-            # the reward is shared. This is the decentralized-actor /
-            # centralized-critic gradient of MADDPG / MASAC (Lowe et al. 2017).
+            # the reward is shared. This is the decentralised-actor /
+            # centralised-critic gradient of MADDPG / MASAC (Lowe et al. 2017).
+            # NOTE: the schema-5 COMA counterfactual baseline was removed. Under
+            # the SAC reparameterisation trick (rsample) a no-grad baseline is
+            # mathematically inert -- it cannot change the pathwise gradient --
+            # so it was dead computation, not real per-agent credit assignment.
             alpha = self.log_alphas[name].exp()
             actor_loss = ((alpha.detach() * logp - q_pi) * mask).sum() / (mask.sum() + 1e-8)
 
@@ -452,13 +466,14 @@ class RecurrentCTDEMultiAgentSAC:
             actor_loss.backward()
             # Clip ALL actor-side parameters the optimizer updates (GRU encoder +
             # soft/hard attention + policy head), not just the policy head. The GRU
-            # is the component most prone to exploding gradients under BPTT.
+            # is the component most prone to exploding gradients under BPTT, so
+            # leaving it unclipped was the real (if benign) gap found in the audit.
             actor_params = [p for grp in self.opt_actors[name].param_groups for p in grp["params"]]
             torch.nn.utils.clip_grad_norm_(actor_params, self.config.grad_clip)
             self.opt_actors[name].step()
 
-            # Fixed-alpha mode: no auto-tune. log_alpha has requires_grad=False,
-            # so there is no alpha gradient step.
+            # Fixed-alpha mode: no auto-tune. log_alpha has requires_grad=False
+            # and opt_alphas[name] is None, so we skip the alpha gradient step.
 
             result[f"{name}_loss_actor"] = float(actor_loss.item())
             result[f"{name}_alpha"] = float(alpha.item())
@@ -472,8 +487,11 @@ class RecurrentCTDEMultiAgentSAC:
 
     def state_dict(self) -> dict:
         return {
-            # schema_version 6: fixed alpha + critic hard attention + per-agent
-            # MASAC actor update (centralized critic, decentralized actors).
+            # schema_version 6: fixed alpha (no opt_alphas) + critic hard
+            # attention + per-agent MASAC actor update (centralised critic,
+            # decentralised actors). The schema-5 COMA counterfactual baseline
+            # was removed because it was gradient-inert under the SAC
+            # reparameterisation trick; saved tensors are unchanged.
             "schema_version": 6,
             "config": self.config,
             "total_steps": self.total_steps,
@@ -511,7 +529,7 @@ class RecurrentCTDEMultiAgentSAC:
             )
             self.opt_actors[name].load_state_dict(state["opt_actors"][name])
             self.log_alphas[name].data.copy_(state["log_alphas"][name])
-            # Fixed-alpha mode: no alpha optimizer to restore.
+            # Fixed-alpha mode: no opt_alphas optimizer to restore.
         self.critic.load_state_dict(state["critic"])
         self.critic_tgt.load_state_dict(state["critic_tgt"])
         self.opt_critic.load_state_dict(state["opt_critic"])
