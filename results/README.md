@@ -8,7 +8,6 @@ Included:
 - official per-configuration summaries for the learned runs reported in the thesis
   (`game2_official_summary_20260620_091413.csv` = restricted ranges,
   `game2_official_summary_20260623_080230.csv` = lower dissolved oxygen);
-- `game2_final_audit/` - an additional exploratory run, not a thesis configuration;
 - small validation helpers used to check exported metrics.
 
 Not included:
