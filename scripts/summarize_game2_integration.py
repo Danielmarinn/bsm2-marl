@@ -1,5 +1,5 @@
 """
-Summarize and sanity-check a Game2 integration log.
+Summarise and sanity-check a Game2 integration log.
 
 This is an integration-test helper, not a thesis metric exporter. It checks
 whether the MATLAB/Python bridge produced bounded four-action rows, stable
@@ -33,7 +33,7 @@ ACTION_BOUNDS = {
 
 def parse_args() -> argparse.Namespace:
     default_log = Path(__file__).resolve().parents[1] / "logs" / "game2_integration_log.csv"
-    parser = argparse.ArgumentParser(description="Summarize Game2 integration log.")
+    parser = argparse.ArgumentParser(description="Summarise Game2 integration log.")
     parser.add_argument(
         "log",
         nargs="?",

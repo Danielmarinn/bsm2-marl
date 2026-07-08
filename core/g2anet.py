@@ -1,10 +1,12 @@
 """
 G2ANet-inspired neural blocks for the BSM2 multi-agent controller.
 
-This module is isolated from the SAC controllers. It implements the
-architectural pieces: per-agent encoding, hard-attention communication
-gates, soft-attention weights, graph/message aggregation, and a central
-critic over the joint action.
+This module is intentionally isolated from the current SAC controllers. It
+implements the architectural pieces we need next: per-agent encoding,
+hard-attention communication gates, soft-attention weights, graph/message
+aggregation, and a central critic over the joint action.
+
+It is not yet a complete training algorithm.
 """
 
 from __future__ import annotations
@@ -47,7 +49,8 @@ class AgentEncoder(nn.Module):
 
     def __init__(self, obs_dim: int, action_dim: int, hidden_dim: int, embed_dim: int):
         super().__init__()
-        # MLP encoder.
+        # Simplified to a robust MLP to avoid the 'stateless GRU' issue
+        # identified in the architectural review.
         self.net = _mlp(obs_dim + action_dim, hidden_dim, embed_dim)
 
     def forward(
@@ -145,8 +148,8 @@ class G2ANetCentralCritic(nn.Module):
             config.temperature,
         )
         self.soft_attention = SoftAttention(config.embed_dim)
-        # Critic input is the attention-based embeddings, so gradients flow
-        # primarily through them.
+        # Removed redundant joint_action_dim to ensure gradients flow
+        # primarily through the attention-based embeddings.
         critic_input_dim = config.n_agents * config.embed_dim
         self.q_head = _mlp(critic_input_dim, config.hidden_dim, 1)
 

@@ -39,6 +39,7 @@ from game2_abstraction import (  # noqa: E402
     AGENT_ORDER,
     augment_local_state,
     game2_context_dim,
+    normalise_action,
     snapshot_from_mapping,
 )
 
@@ -87,10 +88,10 @@ def build_local_states(
     row: Mapping[str, object],
     previous_actions: Mapping[str, float] | None = None,
 ) -> LocalStates:
-    prev_qec = 0.0 if previous_actions is None else (float(previous_actions["qec"]) - 2.5) / 2.5
-    prev_qint = 0.0 if previous_actions is None else (float(previous_actions["qint"]) - 33472.0) / 28472.0
-    prev_do = 0.0 if previous_actions is None else (float(previous_actions["do"]) - 5.0) / 5.0
-    prev_qw = 0.0 if previous_actions is None else (float(previous_actions["qw"]) - 225.0) / 225.0
+    prev_qec = 0.0 if previous_actions is None else normalise_action("qec", previous_actions["qec"])
+    prev_qint = 0.0 if previous_actions is None else normalise_action("qint", previous_actions["qint"])
+    prev_do = 0.0 if previous_actions is None else normalise_action("do", previous_actions["do"])
+    prev_qw = 0.0 if previous_actions is None else normalise_action("qw", previous_actions["qw"])
 
     qec = np.array(
         [

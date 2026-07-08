@@ -1,14 +1,14 @@
 """
-agents/ctrl_sac_qw.py - CTRL-4: Qw control via SAC.
+agents/ctrl_sac_qw.py - CTRL-4: controlo de Qw via SAC
 ======================================================
-SAC agent for the sludge wastage flow Qw, operating on a slower
-timescale than the other controllers.
+Agente SAC para o sludge wastage flow Qw, operando numa escala temporal
+mais lenta que os restantes controladores.
 
-    Observations : [TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d]
-    Action       : Qw in [0, 450] m3/d
+    Observacoes : [TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d]
+    Accao       : Qw in [0, 450] m3/d
 
-The agent decides once per day; MATLAB aggregates the 15-minute signals
-into a daily observation before sending them to Python.
+O agente decide apenas uma vez por dia; o MATLAB agrega os sinais de
+15 minutos numa observacao diaria antes de os enviar ao Python.
 """
 
 import os
@@ -54,7 +54,7 @@ LOG_FILE = os.path.join(LOG_DIR, "ctrl4_qw_training.csv")
 
 
 # =====================================================
-# DIMENSIONS AND LIMITS
+# DIMENSOES E LIMITES
 # =====================================================
 STATE_DIM = 5
 ACTION_DIM = 1
@@ -91,7 +91,7 @@ TARGET_ENTROPY = -float(ACTION_DIM)
 
 
 # =====================================================
-# STATE NORMALIZATION
+# NORMALIZACAO DO ESTADO
 # =====================================================
 STATE_MEAN = [3762.93, 0.531962, 17.4439, 0.545891, 1671.58]   # Baseline run: TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d
 STATE_STD = [254.892, 0.0396945, 2.324, 0.383135, 304.829]    # Baseline run: TSS_5_1d, SND_5_1d, SRT_3d, SNH_5_1d, EQI_1d
@@ -121,7 +121,7 @@ def normalize_state(state):
 
 
 # =====================================================
-# HELPER - atomic rename with retry
+# HELPER - rename atomico com retry
 # =====================================================
 def atomic_replace_with_retry(src, dst, max_retries=20, retry_delay=0.05, label="atomic_replace"):
     last_err = None
@@ -179,9 +179,9 @@ read_state.TIME_D = np.nan
 
 def write_action(qw_value):
     """
-    Atomic write robust to collisions with MATLAB on Windows.
-    The column is still named Qec for historical compatibility of the
-    shared action.csv file.
+    Escrita atomica robusta a colisao com MATLAB em Windows.
+    A coluna continua a chamar-se Qec por compatibilidade historica do
+    ficheiro partilhado action.csv.
     """
     tmp = ACTION_FILE + ".tmp"
     pd.DataFrame({"Qec": [float(qw_value)]}).to_csv(tmp, index=False)
@@ -402,7 +402,7 @@ def load_existing_log():
 
 
 # =====================================================
-# MAIN LOOP
+# LOOP PRINCIPAL
 # =====================================================
 def main():
     global _STATE_MEAN_ARR, _STATE_STD_ARR

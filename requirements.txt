@@ -1,4 +1,4 @@
-# Tested with Python 3.11 (NumPy 2.4, Pandas 3.0, PyTorch 2.11).
+# Tested with Python 3.11.
 numpy>=1.24
 pandas>=2.0
 torch>=2.0

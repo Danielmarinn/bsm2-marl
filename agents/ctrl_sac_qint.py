@@ -1,11 +1,24 @@
 """
-agents/ctrl_sac_qint.py — CTRL-2: Qint control via SAC.
+agents/ctrl_sac_qint.py — CTRL-2: controlo de Qint via SAC  (v2)
 ==========================================================
-SAC agent for the internal recirculation (Qint).
-    Observations : [SNO_2, SNO_1, SNO_3, COD/TN]
-    Action       : Qint in [5000, 61944] m3/d
+Agente SAC para a recirculacao interna (Qint).
+    Observacoes : [SNO_2, SNO_1, SNO_3, COD/TN]
+    Accao       : Qint in [5000, 61944] m3/d
 
-Based on Nam et al. (2023), Journal of Water Process Engineering.
+Baseado em Nam et al. (2023), Journal of Water Process Engineering.
+
+ALTERACOES v2:
+  - write_action com retry em PermissionError (fix Windows WinError 5).
+  - save_log com a mesma logica (robustez a ficheiro aberto em Excel).
+  - train_step aplica clip_grad_norm_=1.0 ao critico e ao actor
+    para estabilidade (padrao em SB3/CleanRL).
+  - Compativel com checkpoint ctrl2_qint_sac.pt existente.
+
+ANTES DE CORRER:
+    1. pip install torch numpy pandas
+    2. Em MATLAB: editar RL_main_simple.m -> AGENT = 'qint'
+    3. Terminal:  python agents/ctrl_sac_qint.py
+    4. Em MATLAB: init_bsm2; run RL_main_simple
 """
 
 import os
@@ -49,7 +62,7 @@ BEST_REWARD_CKPT_FILE = os.path.join(CKPT_DIR, 'ctrl2_qint_sac_best_reward.pt')
 LOG_FILE  = os.path.join(LOG_DIR,  'ctrl2_qint_training.csv')
 
 # =====================================================
-# DIMENSIONS AND LIMITS
+# DIMENSOES E LIMITES
 # =====================================================
 STATE_DIM  = 4
 ACTION_DIM = 1
@@ -76,13 +89,13 @@ BEST_REWARD_WINDOW = 2_000
 BEST_REWARD_FREQ   = 2_000
 RESUME_FROM_CHECKPOINT = False
 
-# Gradient clipping. Standard value in SB3/CleanRL.
+# Gradient clipping — v2. Valor padrao em SB3/CleanRL.
 GRAD_CLIP = 1.0
 
 TARGET_ENTROPY = -float(ACTION_DIM)
 
 # =====================================================
-# STATE NORMALIZATION
+# NORMALIZACAO DO ESTADO
 # =====================================================
 STATE_MEAN = np.array([3.8, 5.5, 7.1, 2.1], dtype=np.float32)
 STATE_STD  = np.array([1.8, 1.9, 1.7, 0.5], dtype=np.float32)
@@ -91,7 +104,7 @@ def normalize_state(state):
     return (state - STATE_MEAN) / (STATE_STD + 1e-8)
 
 # =====================================================
-# HELPER — atomic rename with retry
+# HELPER — rename atomico com retry
 # =====================================================
 def atomic_replace_with_retry(src, dst, max_retries=20, retry_delay=0.05,
                                label='atomic_replace'):
@@ -146,10 +159,10 @@ read_state.sim_time = np.nan
 
 
 def write_action(qint_value):
-    """Atomic write robust to collisions with MATLAB on Windows.
-    Writes both column names for compatibility:
-    - Qint: canonical name
-    - Qec: legacy name still accepted by the MATLAB bridge
+    """Escrita atomica robusta a colisao com MATLAB em Windows.
+    Escreve ambos os nomes de coluna para compatibilidade:
+    - Qint: nome canonico
+    - Qec: nome legado ainda aceite pelo bridge MATLAB
     """
     tmp = ACTION_FILE + '.tmp'
     value = float(qint_value)
@@ -332,7 +345,7 @@ def archive_existing_file_for_fresh_run(path):
         ) from e
 
 # =====================================================
-# MAIN LOOP
+# LOOP PRINCIPAL
 # =====================================================
 
 def main():

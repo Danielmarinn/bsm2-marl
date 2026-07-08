@@ -1,13 +1,14 @@
 """
-agents/ctrl_sac_do.py - CTRL-3: SO4ref control via SAC.
+agents/ctrl_sac_do.py - CTRL-3: controlo de SO4ref via SAC
 ==========================================================
-SAC agent for the dissolved-oxygen setpoint of the official BSM2
-SO4_control loop (aerobic reactor 4). The same KLa signal also drives
-reactor 5 via KLa4/2.
-    Observations : [SO_4, SNH_4, SNH_5, SNO_3, TSS_3]
-    Action       : SO4ref in [0, 10] mg/L
+Agente SAC para o setpoint de oxigenio dissolvido do loop oficial
+BSM2 SO4_control (reactor 4 aerobio). O mesmo sinal KLa influencia
+tambem o reactor 5 via KLa4/2.
+    Observacoes : [SO_4, SNH_4, SNH_5, SNO_3, TSS_3]
+    Accao       : SO4ref in [0, 10] mg/L
 
-Structurally symmetric to ctrl_sac_qec.py.
+Estruturalmente simetrico a ctrl_sac_qec.py, mas sem treino validado
+nem branch de recompensa pronta em core/reward.py.
 """
 
 import os
@@ -51,7 +52,7 @@ BEST_REWARD_CKPT_FILE = os.path.join(CKPT_DIR, 'ctrl3_do_sac_best_reward.pt')
 LOG_FILE  = os.path.join(LOG_DIR,  'ctrl3_do_training.csv')
 
 # =====================================================
-# DIMENSIONS AND LIMITS
+# DIMENSOES E LIMITES
 # =====================================================
 STATE_DIM  = 5
 ACTION_DIM = 1
@@ -84,7 +85,7 @@ GRAD_CLIP = 1.0
 TARGET_ENTROPY = -float(ACTION_DIM)
 
 # =====================================================
-# STATE NORMALIZATION
+# NORMALIZACAO DO ESTADO
 # =====================================================
 STATE_MEAN = [1.99551, 1.34704, 0.557381, 5.69173, 4776.8]   # Baseline run: SO_4, SNH_4, SNH_5, SNO_3, TSS_3
 STATE_STD  = [0.10904, 1.64868, 1.09978, 1.54241, 518.046]  # Baseline run: SO_4, SNH_4, SNH_5, SNO_3, TSS_3
@@ -114,15 +115,15 @@ def normalize_state(state):
 
 
 # =====================================================
-# HELPER - atomic rename with retry
+# HELPER - rename atomico com retry (fix Windows WinError 5)
 # =====================================================
 def atomic_replace_with_retry(src, dst, max_retries=20, retry_delay=0.05,
                                label='atomic_replace'):
     """
-    On Windows os.replace fails with PermissionError if the destination
-    is open in another process (MATLAB reading action.csv or Excel
-    viewing training.csv). Retry a few times; under normal conditions
-    it succeeds on the first attempt.
+    os.replace em Windows falha com PermissionError se o destino
+    estiver aberto por outro processo (MATLAB a ler action.csv ou
+    Excel a visualizar training.csv). Tentamos novamente algumas
+    vezes; em condicoes normais passa a primeira tentativa.
     """
     last_err = None
     for attempt in range(max_retries):
@@ -179,7 +180,7 @@ read_state.sim_time = np.nan
 
 
 def write_action(so4ref_value):
-    """Atomic write robust to collisions with MATLAB on Windows."""
+    """Escrita atomica robusta a colisao com MATLAB em Windows."""
     tmp = ACTION_FILE + '.tmp'
     pd.DataFrame({'Qec': [float(so4ref_value)]}).to_csv(tmp, index=False)
     return atomic_replace_with_retry(tmp, ACTION_FILE, label='write_action')
@@ -367,7 +368,7 @@ def archive_existing_file_for_fresh_run(path):
 
 
 # =====================================================
-# MAIN LOOP
+# LOOP PRINCIPAL
 # =====================================================
 def main():
     global _STATE_MEAN_ARR, _STATE_STD_ARR

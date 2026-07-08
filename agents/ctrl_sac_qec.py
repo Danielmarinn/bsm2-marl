@@ -1,12 +1,32 @@
 """
-agents/ctrl_sac_qec.py — CTRL-1: Qec control via SAC.
+agents/ctrl_sac_qec.py — CTRL-1: controlo de Qec via SAC  (v2)
 ==========================================================
-SAC agent for the external carbon flow (Qec = QEC1, dosed in the
-anoxic reactor 1).
-    Observations : [SNO_2, SNO_1, SNO_3, COD/TN]
-    Action       : Qec in [0, 5] m3/d   (BSM2 Table 18)
+Agente SAC para o caudal de carbono externo (Qec = QEC1, doseado
+no reactor 1 anoxico).
+    Observacoes : [SNO_2, SNO_1, SNO_3, COD/TN]
+    Accao       : Qec in [0, 5] m3/d   (BSM2 Table 18)
 
-Based on Nam et al. (2023), Journal of Water Process Engineering.
+Baseado em Nam et al. (2023), Journal of Water Process Engineering.
+
+ALTERACOES v2 (diagnostico da corrida de 7076 steps):
+  - write_action com retry em PermissionError:
+    na corrida anterior o programa morreu com WinError 5 porque o
+    MATLAB tinha action.csv aberto para leitura no instante exacto
+    em que o Python fez os.replace. Agora tenta ate 20x com 50ms
+    de intervalo entre tentativas.
+  - save_log com a mesma logica (Excel aberto no ficheiro nao mata
+    mais o programa).
+  - train_step aplica clip_grad_norm_=1.0 ao critico e ao actor.
+    Previne os picos de loss_critic a 1e12 observados em 6.9% dos
+    steps. E' o valor padrao em SB3/CleanRL e nao altera o
+    algoritmo — apenas estabiliza a optimizacao.
+  - log regista as normas dos gradientes para monitorizacao.
+
+ANTES DE CORRER:
+    1. pip install torch numpy pandas
+    2. Em MATLAB: editar RL_main_simple.m -> AGENT = 'qec'
+    3. Terminal:  python agents/ctrl_sac_qec.py
+    4. Em MATLAB: init_bsm2; run RL_main_simple
 """
 
 import os
@@ -53,7 +73,7 @@ LOG_FILE  = os.path.join(LOG_DIR,  'ctrl1_qec_training_optionB.csv')
 DIAG_FILE = os.path.join(LOG_DIR,  'diag_qec_sno2_corr.csv')
 
 # =====================================================
-# DIMENSIONS AND LIMITS
+# DIMENSOES E LIMITES
 # =====================================================
 STATE_DIM  = 4
 ACTION_DIM = 1
@@ -80,13 +100,13 @@ LOG_FREQ     = 100
 DIAG_FREQ    = 2_000
 RESUME_FROM_CHECKPOINT = False
 
-# Gradient clipping. Standard value in SB3/CleanRL.
+# Gradient clipping — v2 fix. Valor padrao em SB3/CleanRL.
 GRAD_CLIP = 1.0
 
 TARGET_ENTROPY = -float(ACTION_DIM)
 
 # =====================================================
-# STATE NORMALIZATION
+# NORMALIZACAO DO ESTADO
 # =====================================================
 STATE_MEAN = np.array([3.8, 5.5, 7.1, 2.1], dtype=np.float32)
 STATE_STD  = np.array([1.8, 1.9, 1.7, 0.5], dtype=np.float32)
@@ -110,15 +130,15 @@ def build_agent_state(obs_state, prev_qec_applied):
     ], dtype=np.float32)
 
 # =====================================================
-# HELPER — atomic rename with retry
+# HELPER — rename atomico com retry (fix Windows WinError 5)
 # =====================================================
 def atomic_replace_with_retry(src, dst, max_retries=20, retry_delay=0.05,
                                label='atomic_replace'):
     """
-    On Windows os.replace fails with PermissionError if the destination
-    is open in another process (MATLAB reading action.csv or Excel
-    viewing training.csv). Retry a few times; under normal conditions
-    it succeeds on the first attempt.
+    os.replace em Windows falha com PermissionError se o destino
+    estiver aberto por outro processo (MATLAB a ler action.csv ou
+    Excel a visualizar training.csv). Tentamos novamente algumas
+    vezes; em condicoes normais passa a primeira tentativa.
     """
     last_err = None
     for attempt in range(max_retries):
@@ -171,7 +191,7 @@ read_state.sim_time = np.nan
 
 
 def write_action(qec_value):
-    """Atomic write robust to collisions with MATLAB on Windows."""
+    """Escrita atomica robusta a colisao com MATLAB em Windows."""
     tmp = ACTION_FILE + '.tmp'
     pd.DataFrame({'Qec': [float(qec_value)]}).to_csv(tmp, index=False)
     return atomic_replace_with_retry(tmp, ACTION_FILE, label='write_action')
@@ -394,7 +414,7 @@ def save_qec_sno2_diag(agent, step):
     return corr
 
 # =====================================================
-# MAIN LOOP
+# LOOP PRINCIPAL
 # =====================================================
 
 def main():

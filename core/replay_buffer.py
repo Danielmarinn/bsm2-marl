@@ -1,6 +1,6 @@
 """
-replay_buffer.py — Replay buffer for SAC on BSM2.
-Stores experiences (s, a, r, s', done) for off-policy training.
+replay_buffer.py — Replay Buffer para SAC no BSM2
+Armazena experiências (s, a, r, s', done) para treino off-policy.
 """
 
 import numpy as np
@@ -8,14 +8,14 @@ import numpy as np
 
 class ReplayBuffer:
     """
-    Fixed-size circular buffer.
-    Each experience is a tuple (state, action, reward, next_state, done).
+    Buffer circular de tamanho fixo.
+    Cada experiência é um tuplo (state, action, reward, next_state, done).
     """
 
     def __init__(self, state_dim, action_dim, max_size=50_000):
         self.max_size  = max_size
-        self.ptr       = 0      # write position
-        self.size      = 0      # number of stored experiences
+        self.ptr       = 0      # posição de escrita
+        self.size      = 0      # número de experiências armazenadas
 
         self.states      = np.zeros((max_size, state_dim),  dtype=np.float32)
         self.actions     = np.zeros((max_size, action_dim), dtype=np.float32)

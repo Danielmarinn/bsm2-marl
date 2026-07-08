@@ -1,18 +1,15 @@
 """
-core/reward.py - Frozen JOINT reward for the 4-agent Game2 controller
-=====================================================================
+core/reward.py - joint and diagnostic rewards for the BSM2 controllers.
 
-Joint reward:
+Final multi-agent reward:
 
-    J(t)       = 200 * EQI(t) + 40 * AE(t) + 3 * PE(t) + EC(t)
-    ratio(t)   = J(t) / J_MANUAL
-    r(t)       = max(-5 * ratio(t) + 5,  REWARD_FLOOR)
+    J(t)     = 200 * EQI(t) + 40 * AE(t) + 3 * PE(t) + EC(t)
+    ratio(t) = J(t) / J_MANUAL
+    r(t)     = max(-5 * ratio(t) + 5, REWARD_FLOOR)
 
-with J_MANUAL = 1286486.67 the BSM2 default-controller cost on the
-identical scenario and REWARD_FLOOR = -5.0.
-
-The single-agent helpers (compute_reward) used by the diagnostic
-ctrl_sac_{qec,qint,do,qw}.py scripts are kept unchanged.
+The manual baseline is computed on the official 245-609 day evaluation
+window from the same logged components. The single-agent helpers are kept for
+the diagnostic controllers.
 
 References:
     Alex, J. et al. (2008). Benchmark Simulation Model No. 2 (BSM2).
@@ -46,19 +43,26 @@ W_EC = 1.0
 W_SRT = 40.0  # single-agent qw only
 
 # =====================================================
-# Joint reward constants.
-# J_MANUAL is the BSM2 default-controller cost on the evaluation window,
-# computed as J = 200*EQI + 40*AE + 3*PE + EC.
+# J_MANUAL is the BSM2 default-controller cost on the official 245..609 d
+# evaluation window, computed as J = 200*EQI + 40*AE + 3*PE + EC from the
+# 2026-05-26 baseline run (post bridge-fix; EXP-002/EXP-004 set_param path).
 # Source: prog_RL/results/bsm2_manual_baseline_official_summary.csv
+#   EQI = 5576.665, AE = 4225.433, PE = 445.453, EC = 800.000
+# Previous value 1293523.0 (from run_bsm2_manual_baseline.m:213) was 0.54%
+# higher than the actually-measured baseline; corrected so ratio = 1.0
+# corresponds exactly to the manual baseline.
 # =====================================================
 J_MANUAL = 1286486.67
 
-# Joint-reward floor (Nam et al. 2023 original), so ratios above ~1.2 still
-# produce a differentiable reward signal.
+# Joint-reward floor for the final multi-agent run.
+# A -5.0 floor preserves gradient separation between merely bad and
+# catastrophic ratios. The earlier -1.0 diagnostic floor saturated too early
+# for the long Game2 runs.
 REWARD_FLOOR = -5.0
 
 # Single-agent diagnostic floor (kept for compute_reward and the
-# ctrl_sac_{qec,qint,do,qw}.py diagnostics).
+# ctrl_sac_{qec,qint,do,qw}.py diagnostics). It is intentionally separate from
+# the final multi-agent floor.
 REWARD_FLOOR_NAM = -1.0
 
 
@@ -185,14 +189,15 @@ def compute_reward(state, action, agent='qint', qint_other=None, qec_other=None)
 # =====================================================
 def compute_joint_reward(row_data, actions, previous_actions=None):
     """
-    Joint reward.
+    Final frozen joint reward.
 
         J     = 200 * EQI + 40 * AE + 3 * PE + EC
         ratio = J / J_MANUAL
         r     = max(-5 * ratio + 5, REWARD_FLOOR)
 
     EQI/AE/PE/EC are consumed verbatim from the BSM2-aligned bridge
-    metrics in row_data; the weights match the BSM2 OCI form.
+    metrics in row_data; the weights match the BSM2 OCI form and the
+    MATLAB baseline at prog_RL/matlab/run_bsm2_manual_baseline.m:218.
 
     previous_actions is accepted for call-site compatibility and unused;
     smoothness is enforced upstream by the delta-action rate limits in

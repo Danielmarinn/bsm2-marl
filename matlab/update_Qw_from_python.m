@@ -1,18 +1,18 @@
 function update_Qw_from_python(action_file)
 % UPDATE_QW_FROM_PYTHON
-%   Read the sludge wastage flow (Qw) from the action.csv written by
-%   Python and apply it to the timer-based BSM2 loop.
+%   Le o caudal de sludge wastage (Qw) do action.csv escrito pelo
+%   Python e aplica-o ao loop timer-based do BSM2.
 %
-%   To force the Qw_time_controller block to follow the RL action instead
-%   of the default low/high alternation, this function writes the same
-%   value to Qw, Qw_low and Qw_high in the MATLAB workspace.
+%   Para forcar o bloco Qw_time_controller a seguir a accao do RL em
+%   vez da alternancia low/high default, esta funcao escreve o mesmo
+%   valor em Qw, Qw_low e Qw_high no workspace MATLAB.
 %
-%   Limits of this CTRL-4 scaffold:
+%   Limites desta scaffold CTRL-4:
 %       Qw in [0, 450] m3/d
 %
-%   Note: the physical BSM2 actuator allows values above this, but the
-%   [0, 450] range keeps the agent within the default timer-based regime
-%   used in this thesis.
+%   Nota: o actuador fisico BSM2 permite valores acima disto, mas o
+%   intervalo [0, 450] mantem o agente dentro do regime timer-based
+%   default usado nesta tese.
 
     QW_MIN = 0.0;
     QW_MAX = 450.0;
@@ -23,7 +23,7 @@ function update_Qw_from_python(action_file)
         Qw = data(end);
         Qw = max(QW_MIN, min(QW_MAX, Qw));
     catch e
-        warning('update_Qw_from_python: %s - using BSM2 default (300 m3/d)', e.message);
+        warning('update_Qw_from_python: %s - usando default BSM2 (300 m3/d)', e.message);
         Qw = 300.0;
     end
 

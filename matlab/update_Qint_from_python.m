@@ -1,17 +1,17 @@
 function update_Qint_from_python(action_file)
 % UPDATE_QINT_FROM_PYTHON
-%   Read Qint from the action.csv written by Python and apply it to the
-%   Qintr variable in the MATLAB workspace.
+%   Le Qint do action.csv escrito pelo Python e aplica-o a variavel
+%   Qintr do workspace MATLAB.
 %
-%   Naming note: the CSV column is named 'Qec' for historical
-%   compatibility of the shared communication file. The value is applied
-%   as Qintr (internal recirculation), NOT as external carbon. The
-%   distinction is made in RL_main_simple.m via the AGENT variable, which
-%   chooses which update_* function is called.
+%   Nota de nomenclatura: a coluna no CSV chama-se 'Qec' por razoes
+%   historicas de compatibilidade do ficheiro de comunicacao
+%   partilhado. O valor e' aplicado como Qintr (recirculacao interna),
+%   NAO como carbono externo. A distincao e' feita em RL_main_simple.m
+%   via a variavel AGENT, que escolhe qual funcao update_* e' chamada.
 %
-%   BSM2 limits (Table 18): Qint in [0, 309720] m3/d.
-%   Practical limit used in training: [5000, 61944] m3/d
-%   (61944 = BSM2 initialization default, Section 9).
+%   Limites BSM2 (Table 18): Qint in [0, 309720] m3/d.
+%   Limite pratico usado no treino: [5000, 61944] m3/d
+%   (61944 = valor default da inicializacao BSM2, Section 9).
 
     QINT_MIN = 5000.0;
     QINT_MAX = 61944.0;
@@ -19,10 +19,10 @@ function update_Qint_from_python(action_file)
     try
         data = readmatrix(action_file);
         data = data(~isnan(data));
-        Qintr = data(end);   % 'Qec' column = Qint by historical convention
+        Qintr = data(end);   % coluna 'Qec' = Qint por convencao historica
         Qintr = max(QINT_MIN, min(QINT_MAX, Qintr));
     catch e
-        warning('update_Qint_from_python: %s — using BSM2 default (61944 m3/d)', e.message);
+        warning('update_Qint_from_python: %s — usando default BSM2 (61944 m3/d)', e.message);
         Qintr = QINT_MAX;
     end
 

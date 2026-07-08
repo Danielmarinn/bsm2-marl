@@ -2,11 +2,11 @@
 %  Superseded by RL_main_simple.m (single-agent) and RL_main_game2.m (multi-agent).
 %  Kept for reference only.
 %
-% BEFORE RUNNING:
+% ANTES DE CORRER:
 %   1. init_bsm2
 %   2. load('states_day245.mat')
 %   3. Terminal: python agents/ctrl_sac_qint.py
-%   4. run this script
+%   4. run este script
 
 model    = 'bsm2_cl';
 RL_DIR   = fileparts(fileparts(mfilename('fullpath')));
@@ -23,7 +23,7 @@ COMMS    = fullfile(RL_DIR, 'comms');
 addpath(fullfile(RL_DIR, 'matlab'));
 
 %% ===============================
-% Episode parameters
+% Parâmetros de episódio
 %% ===============================
 EPISODE_DAYS = 50;
 START_DAY    = 245;
@@ -31,7 +31,7 @@ STOP_DAY     = START_DAY + EPISODE_DAYS;   % 295
 N_EPISODES   = 20;
 
 %% ===============================
-% Time parameters
+% Parâmetros de tempo
 %% ===============================
 dt      = 15 / (24*60);
 tol     = 1e-6;
@@ -49,70 +49,70 @@ EPISODE_FILE = fullfile(COMMS, 'episode_info.csv');
 STATE_DAY245 = fullfile(BSM2_DIR, 'states_day245.mat');
 
 %% ===============================
-% Initial checks
+% Verificações iniciais
 %% ===============================
 if ~isfile(STATE_DAY245)
-    error('[RL] states_day245.mat not found!');
+    error('[RL] states_day245.mat nao encontrado!');
 end
 
 if ~bdIsLoaded(model)
     open_system(model);
-    fprintf('[RL] Model %s loaded.\n', model);
+    fprintf('[RL] Modelo %s carregado.\n', model);
 end
 
 %% ===============================
-% Clear old flags
+% Limpar flags antigos
 %% ===============================
 for f = {FLAG_STATE, FLAG_ACTION, FLAG_EPISODE}
     if isfile(f{1}), delete(f{1}); end
 end
 
-fprintf('\n[RL] Starting training: %d episodes x %d days\n\n', N_EPISODES, EPISODE_DAYS);
+fprintf('\n[RL] Iniciando treino: %d episodios x %d dias\n\n', N_EPISODES, EPISODE_DAYS);
 
 %% ===============================
-% EPISODE LOOP
+% LOOP DE EPISÓDIOS
 %% ===============================
 for ep = 1:N_EPISODES
 
-    fprintf('\n%s\n[RL] EPISODE %d / %d\n%s\n', ...
+    fprintf('\n%s\n[RL] EPISODIO %d / %d\n%s\n', ...
             repmat('=',1,50), ep, N_EPISODES, repmat('=',1,50));
 
-    %% --- Reset: load day-245 state ---
+    %% --- Reset: carregar estado do dia 245 ---
     load(STATE_DAY245);
-    fprintf('[RL] Day-245 state loaded.\n');
+    fprintf('[RL] Estado do dia 245 carregado.\n');
 
-    %% --- Configure simulation ---
+    %% --- Configurar simulação ---
     set_param(model, 'SimulationMode', 'accelerator');
     set_param(model, 'StartTime', num2str(START_DAY));
     set_param(model, 'StopTime',  num2str(STOP_DAY));
     set_param(model, 'OutputTimes', ...
         ['[' num2str(START_DAY) ':(1/96):' num2str(STOP_DAY) ']']);
 
-    %% --- Signal Python: new episode ---
+    %% --- Sinalizar Python: novo episódio ---
     T_ep = table(ep, START_DAY, STOP_DAY, N_EPISODES, ...
         'VariableNames', {'episode','start_day','stop_day','total_episodes'});
     writetable(T_ep, EPISODE_FILE);
     fid = fopen(FLAG_EPISODE, 'w'); fclose(fid);
-    fprintf('[RL] flag_episode created (ep=%d)\n', ep);
+    fprintf('[RL] flag_episode criado (ep=%d)\n', ep);
 
-    %% --- Start simulation ---
+    %% --- Iniciar simulação ---
     set_param(model, 'SimulationCommand', 'start');
-    fprintf('[RL] Simulation started (t=%d -> t=%d)\n', START_DAY, STOP_DAY);
+    fprintf('[RL] Simulacao iniciada (t=%d -> t=%d)\n', START_DAY, STOP_DAY);
 
     pause(1);
     t_init = tic;
     while strcmp(get_param(model, 'SimulationStatus'), 'initializing')
         pause(0.1);
         if toc(t_init) > 120
-            error('[RL] Timeout during model initialization.');
+            error('[RL] Timeout na inicializacao do modelo.');
         end
     end
     fprintf('[RL] Status: %s\n', get_param(model, 'SimulationStatus'));
 
-    % IMPORTANT: next_pause_time = START_DAY + dt
+    % IMPORTANTE: next_pause_time = START_DAY + dt
     next_pause_time = START_DAY + dt;
 
-    %% --- Inner episode loop ---
+    %% --- Loop interno do episódio ---
     while true
 
         pause(0.05);
@@ -120,7 +120,7 @@ for ep = 1:N_EPISODES
         simStatus = get_param(model, 'SimulationStatus');
 
         if strcmp(simStatus, 'stopped')
-            fprintf('[RL] Episode %d complete.\n', ep);
+            fprintf('[RL] Episodio %d concluido.\n', ep);
             break
         end
 
@@ -138,16 +138,16 @@ for ep = 1:N_EPISODES
                 while ~strcmp(get_param(model, 'SimulationStatus'), 'paused')
                     pause(0.02);
                     if toc(t_pause) > 10
-                        warning('[RL] Timeout waiting for pause.');
+                        warning('[RL] Timeout a aguardar pausa.');
                         break
                     end
                 end
 
                 t_sim = get_param(model, 'SimulationTime');
 
-                %% --- Collect CTRL-2 observations ---
-                % reac1/2/3 are arrays updated by the simulation
-                % S_NO1 etc. are initialization values — do NOT use
+                %% --- Coletar observações CTRL-2 ---
+                % reac1/2/3 são arrays actualizados pela simulação
+                % S_NO1 etc. são valores de inicialização — NÃO usar
                 SNO_1 = reac1(end, 9);
                 SNO_2 = reac2(end, 9);
                 SNO_3 = reac3(end, 9);
@@ -164,7 +164,7 @@ for ep = 1:N_EPISODES
                 fprintf('[ep%02d t=%.3f] SNO2=%.3f SNO1=%.3f SNO3=%.3f CODTN=%.2f SNH=%.3f\n', ...
                     ep, t_sim, SNO_2, SNO_1, SNO_3, CODTN, SNH_2);
 
-                %% --- Write state.csv ---
+                %% --- Escrever state.csv ---
                 T_csv = table(SNO_2, SNO_1, SNO_3, CODTN, SNH_2, Flow, Temp, t_sim, ...
                     'VariableNames', ...
                     {'SNO_2','SNO_1','SNO_3','CODTN','SNH_in','Flow','Temp','time'});
@@ -173,12 +173,12 @@ for ep = 1:N_EPISODES
                 if isfile(FLAG_STATE), delete(FLAG_STATE); end
                 fid = fopen(FLAG_STATE, 'w'); fclose(fid);
 
-                %% --- Wait for action from Python ---
+                %% --- Aguardar ação do Python ---
                 t_wait = tic;
                 while ~isfile(FLAG_ACTION)
                     pause(0.05);
                     if toc(t_wait) > TIMEOUT
-                        warning('[RL] TIMEOUT — Qint default applied.');
+                        warning('[RL] TIMEOUT — Qint default aplicado.');
                         Tdef = table(61944.0, 61944.0, 'VariableNames', {'Qint','Qec'});
                         writetable(Tdef, ACTION_FILE);
                         fid = fopen(FLAG_ACTION, 'w'); fclose(fid);
@@ -186,11 +186,11 @@ for ep = 1:N_EPISODES
                     end
                 end
 
-                %% --- Apply action ---
+                %% --- Aplicar ação ---
                 update_Qint_from_python(ACTION_FILE);
                 delete(FLAG_ACTION);
 
-                %% --- Resume ---
+                %% --- Retomar ---
                 next_pause_time = next_pause_time + dt;
                 set_param(model, 'SimulationCommand', 'continue');
 
@@ -204,4 +204,4 @@ for ep = 1:N_EPISODES
 
 end
 
-fprintf('\n[RL] Training complete! %d episodes finished.\n', N_EPISODES);
+fprintf('\n[RL] Treino completo! %d episodios concluidos.\n', N_EPISODES);

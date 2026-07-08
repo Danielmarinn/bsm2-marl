@@ -179,7 +179,7 @@ class ActorSoftAttention(nn.Module):
     context vector for the designated self agent by attending over the other
     agents. Self-attention is masked out. An optional `gate` tensor of shape
     [..., n_agents] (values in [0, 1]) multiplies the attention weights before
-    renormalization, providing the integration point for hard attention.
+    renormalization, providing the integration point for TP-013 hard attention.
     """
 
     def __init__(self, embed_dim: int):
@@ -303,7 +303,7 @@ class TemporalSoftAttention(nn.Module):
     """Soft attention over agents at each timestep.
 
     Accepts an optional pairwise gate that masks the attention weights before
-    renormalization. The current central critic is soft-only and calls this
+    renormalisation. The current central critic is soft-only and calls this
     without a gate; the parameter is retained as a general capability. (A hard
     gate on a value-regression critic has no sparsity incentive and collapses
     to fully-connected -- the faithful G2ANet hard gate is on the actor.)
@@ -384,9 +384,10 @@ class RecurrentAttentionCentralCritic(nn.Module):
             dim=2,
         )
         # Soft-only central critic. Hard (discrete) gating belongs on the ACTOR
-        # in G2ANet (ActorHardAttention); a hard gate on a value-regression
-        # critic has no sparsity incentive and collapses to fully-connected, so
-        # it is intentionally not used here.
+        # in G2ANet (ActorHardAttention) and per the project's D-004 contract; a
+        # hard gate on a value-regression critic has no sparsity incentive and
+        # collapses to fully-connected (verified empirically), so it is
+        # intentionally not used here.
         messages, soft_weights = self.attention(embeddings)
         joint = (embeddings + messages).reshape(embeddings.shape[0], embeddings.shape[1], -1)
         q_tot = self.q_head(joint)
