@@ -12,8 +12,8 @@ The final controller is a recurrent Soft Actor-Critic system trained under centr
 - `core/` - SAC networks, replay buffer, reward functions, Game2 state abstraction, and recurrent G2ANet/CTDE blocks.
 - `matlab/` - MATLAB/Simulink orchestration and action-update hooks for the BSM2 co-simulation.
 - `scripts/` - analysis, monitoring, validation, and run helpers.
-- `docs/` - concise implementation and validation notes.
-- `results/` - small exported tables and figures that document the thesis runs.
+- `docs/` - implementation and validation notes.
+- `results/` - exported tables and figures from the thesis runs.
 
 The official BSM2 distribution is not redistributed here. MATLAB, Simulink, and the BSM2 model files must be available locally to reproduce the full plant loop.
 
@@ -30,9 +30,9 @@ The multi-agent coordinator supports four modes:
 
 The thesis focuses on `sac-ctde-rnn`. It uses a straight-through binary hard gate followed by soft attention on the actor side, and soft inter-agent attention in the centralized critic. The entropy temperature is fixed in the final controller rather than auto-tuned.
 
-## Main result, stated carefully
+## Main result
 
-The central finding is negative but informative: the coordinated multi-agent controller runs end to end on BSM2 and produces closed-loop plant-wide policies, but the tested reward, action bounds, and compliance penalty do **not** yield a policy that beats the manual BSM2 baseline while respecting the official effluent limits.
+The result is negative. The coordinated multi-agent controller runs end to end on BSM2 and produces closed-loop plant-wide policies, but the tested reward, action bounds, and compliance penalty do **not** yield a policy that beats the manual BSM2 baseline while respecting the official effluent limits.
 
 A lower operating cost is only meaningful if the effluent limits stay protected. The manual baseline is a demanding reference: it already runs near 2 mg/L dissolved oxygen and balances effluent quality (EQI), operating cost (OCI), and compliance well.
 
@@ -55,11 +55,13 @@ How to read it:
 - **Restricted (physically safe) action ranges** are the most reliable learned configuration. Ammonia compliance is restored (0.25% violation) and EQI returns close to the baseline, but the official OCI is about **12.5% higher** than the manual baseline. Once confined to a safe operating region, the learned controller treats more aggressively and spends more.
 - **Lowering the dissolved-oxygen bound** recovers part of the aeration saving but reintroduces ammonia violations (12.93%). The simple compliance penalty tested here does not close that trade-off (15.14%).
 
-So the contribution is the implementation plus the diagnosis: the work shows *when* an apparent cost reduction is caused by insufficient treatment effort rather than by genuine improvement, and it shows that effluent limits must shape learning as safety requirements before coordinated RL can reduce operating cost without degrading effluent quality.
+The contribution is the implementation and the diagnosis. The work shows *when* an apparent cost reduction is caused by insufficient treatment effort rather than by genuine improvement, and it shows that effluent limits have to shape learning as safety constraints before coordinated RL can cut operating cost without degrading effluent quality.
 
 See `docs/validation.md` for the per-configuration tables and `results/` for the exported official summaries.
 
 ## Running the code
+
+Tested with Python 3.11 and MATLAB/Simulink R2025a.
 
 Install the Python dependencies:
 
@@ -81,10 +83,22 @@ run matlab/RL_main_game2.m
 
 The co-simulation uses CSV and flag files under `comms/`. Runtime logs, checkpoints, `.mat` files, and local BSM2 assets are intentionally ignored by Git.
 
-## Repository stance
+## Scope
 
-This is a research codebase, not a packaged control product. The public version keeps the implementation, reproducibility hooks, small validation artifacts, and honest result summaries. Large training logs, model checkpoints, MATLAB `.mat` runtime files, and the proprietary/third-party BSM2 model are excluded.
+This is a research codebase, not a packaged control product. The public version keeps the implementation, the reproducibility hooks, the validation artifacts, and the result summaries. Large training logs, model checkpoints, MATLAB `.mat` runtime files, and the third-party BSM2 model are excluded.
+
+## Citation
+
+Marin, D. (2026). *Multi-Agent Reinforcement Learning for Energy-Efficient Control of Wastewater Treatment Plants*. MSc dissertation, Department of Physics, Faculty of Sciences and Technology, University of Coimbra. Supervised by Prof. Jorge S. S. Júnior, co-supervised by Prof. Jérôme Mendes.
+
+The dissertation is open access in Estudo Geral, the University of Coimbra repository: <link>
+
+## Funding
+
+This research was supported by national funds through FCT under projects UID/00285/2025 (DOI: 10.54499/UID/00285/2025) and LA/P/0112/2020 (DOI: 10.54499/LA/P/0112/2020). It was also co-financed by the European Regional Development Fund through the Innovation and Digital Transition Thematic Programme (COMPETE 2030) of Portugal 2030, under Project SymbIo4WWTP (COMPETE2030-FEDER-0079700). The work was carried out at CEMMPRE, University of Coimbra.
 
 ## License
 
-MIT. See `LICENSE`.
+The code in this repository is MIT licensed. See `LICENSE`.
+
+The dissertation itself is published under Creative Commons Attribution-NonCommercial-NoDerivatives (CC BY-NC-ND) and is **not** covered by the MIT licence.

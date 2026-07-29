@@ -1,6 +1,6 @@
 # Validation Summary
 
-The public repository keeps only the small validation artifacts needed to understand the thesis result.
+The public repository keeps the validation artifacts needed to understand the thesis result.
 
 ## Single-agent diagnostics
 
@@ -36,11 +36,13 @@ Reading:
 - Restricted ranges are the most reliable learned configuration: ammonia compliant (0.25%), EQI near baseline, but OCI about 12.5% above the manual baseline.
 - Lowering the dissolved-oxygen bound recovers some aeration saving but breaks ammonia compliance (12.93%); the tested soft penalty does not fix it (15.14%).
 
-No learned configuration improves the manual baseline while respecting the official effluent limits. That is the intended result.
+No learned configuration improves the manual baseline while respecting the official effluent limits. That is the result the thesis reports.
 
 ## Files
 
 - `results/bsm2_manual_baseline_official_summary.csv` - manual baseline, official metrics.
 - `results/game2_official_summary_20260620_091413.csv` - restricted-ranges run (the most reliable learned configuration).
 - `results/game2_official_summary_20260623_080230.csv` - lower dissolved-oxygen run.
+- `results/game2_official_summary_20260626_084942.csv` - lower dissolved-oxygen run with the compliance penalty.
+- `results/game2_original_ranges_from_thesis_tables.csv` - original-ranges run. This one is transcribed from the dissertation tables, not exported from a run, because the run summary was not retained. Every field is labelled with its source and unreported fields are left blank.
 - `docs/validation/single_agent_validation_summary.csv` - single-agent diagnostic table.
