@@ -4,12 +4,16 @@ The project separates the thesis controller into four single-agent diagnostics a
 
 ## Single-agent diagnostics
 
-| Controller | Action | Range | Purpose |
-|---|---:|---:|---|
-| CTRL-1 | `Qec` | 0 to 5 mg/L | External carbon dosing diagnostic. |
-| CTRL-2 | `Qint` | 5000 to 61944 m3/d | Internal nitrate recycle diagnostic. |
-| CTRL-3 | `SO4ref` / `DOref` | 0 to 10 mg/L | Dissolved oxygen setpoint diagnostic. |
-| CTRL-4 | `Qw` | 0 to 450 m3/d | Waste sludge flow diagnostic. |
+Ranges and rate limits follow Table 4.1 of the dissertation.
+
+| Controller | Action | Range | Rate limit | Purpose |
+|---|---:|---:|---:|---|
+| CTRL-1 | `Qec` (m3/d) | 0 to 5 | ±0.5 | External carbon dosing diagnostic. |
+| CTRL-2 | `Qint` (m3/d) | 5000 to 61944 | ±5000 | Internal nitrate recycle diagnostic. |
+| CTRL-3 | `SO4ref` / `DOref` (mg/L) | 0 to 10 | ±0.5 | Dissolved oxygen setpoint diagnostic. |
+| CTRL-4 | `Qw` (m3/d) | 0 to 450 | ±5 | Waste sludge flow diagnostic. |
+
+The rate limit applies at each variable's update interval: the 15 min simulator step for `Qec`, `Qint` and `DOref`, and the daily sludge update for `Qw`.
 
 These controllers are useful because they isolate each actuator before the full multi-agent run. The validation figures in `docs/validation/` show that all four controllers produced bounded actions and usable SAC logs.
 

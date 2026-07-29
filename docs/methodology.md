@@ -9,9 +9,11 @@ The answer is implemented as a file-based MATLAB/Python co-simulation. MATLAB ad
 The final multi-agent controller uses one shared plant objective:
 
 ```text
-J = 200 * EQI + 40 * AE + 3 * PE + EC
+J = 200 * EQI + 40 * AE + 3 * PE_online + EC
 r = max(-5 * J / J_manual + 5, -5)
 ```
+
+`PE_online` is a reduced pumping term that keeps only the activated sludge pumping contributions available online, so it is not the full official BSM2 pumping energy. See Appendix A of the dissertation.
 
 The manual baseline value is computed on the same official 245-609 day evaluation window. This keeps the learning signal tied to the same tradeoff used for the thesis comparison.
 
